@@ -1,5 +1,7 @@
 # HyperRogue
 
+funny fork of the EVIl version of spherical geometry rogue clone "rogue of the hyper" by rogue of the zeno. this might have actual changes (even if just changing numbers around), or it might never be touched again. who knows!!!!!! the rest of the description is just the normal readme.
+
 A puzzle roguelike in the hyperbolic plane. See the [HyperRogue website](http://roguetemple.com/z/hyper.php) for detailed and most up-to-date information.
 Compiled executables can be downloaded from [itch.io](https://zenorogue.itch.io/hyperrogue) and from the [HyperRogue website](http://www.roguetemple.com/z/hyper/download.php).
 
