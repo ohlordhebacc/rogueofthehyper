@@ -1220,7 +1220,7 @@ EX void animate_parameter(parameter *par, string f) {
   aps.emplace_back(animated_parameter{par, f});
   }
 
-int ap_changes;
+EX int ap_changes;
 
 void apply_animated_parameters() {
   ap_changes = 0;
@@ -1803,7 +1803,7 @@ EX bool any_animation() {
   }
 
 EX bool any_on() {
-  return any_animation() || history::includeHistory;
+  return any_animation() || history::includeHistory || currently_scrolling;
   }
 
 EX bool center_music() {

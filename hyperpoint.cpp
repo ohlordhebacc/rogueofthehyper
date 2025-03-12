@@ -704,6 +704,13 @@ EX transmatrix euclidean_translate(ld x, ld y, ld z) {
   return T;
   }
 
+EX transmatrix euscalexx(ld x) {
+  transmatrix T = Id;
+  T[0][0] = x;
+  T[1][1] = x;
+  return T;
+  }
+
 EX transmatrix euscale(ld x, ld y) {
   transmatrix T = Id;
   T[0][0] = x;
@@ -717,6 +724,10 @@ EX transmatrix euscale3(ld x, ld y, ld z) {
   T[1][1] = y;
   T[2][2] = z;
   return T;
+  }
+
+EX hyperpoint eupoint(ld x, ld y) {
+  return hyperpoint(x, y, MDIM == 3 ? 1 : 0, 1);
   }
 
 EX transmatrix eupush(hyperpoint h, ld co IS(1)) {

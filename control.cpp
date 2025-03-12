@@ -395,6 +395,7 @@ EX ld camera_speed = 1;
 EX ld camera_rot_speed = 1;
 
 EX void full_forward_camera(ld t) {
+  if(t) currently_scrolling = true;
   if(anyshiftclick) 
     zoom_or_fov(exp(-t/10.));
   else if(GDIM == 3) {
@@ -409,6 +410,7 @@ EX void full_cstrafe_camera(int dir, ld t) {
     shift_view(ctangent(dir, t * camera_speed));
     didsomething = true;
     playermoved = false;
+    if(t) currently_scrolling = true;
     }
   }
 
@@ -424,6 +426,7 @@ EX ld third_person_rotation = 0;
 
 EX void full_rotate_camera(int dir, ld val) {
   if(!val) return;
+  currently_scrolling = true;
   if(rug::rug_control() && lshiftclick) {
     val *= camera_rot_speed;
     hyperpoint h;
@@ -478,6 +481,7 @@ EX void full_rotate_camera(int dir, ld val) {
   }
 
 EX void full_rotate_view(ld h, ld v) {
+  if(v) currently_scrolling = true;
   if(history::on && !rug::rug_control())
     models::rotation = spin(h * camera_rot_speed) * models::rotation;
   else {
@@ -491,8 +495,8 @@ EX void full_rotate_view(ld h, ld v) {
 EX void handlePanning(int sym, int uni) {
   if(mousepan && dual::split([=] { handlePanning(sym, uni); })) return;
   if(GDIM == 3) {
-    if(sym == PSEUDOKEY_WHEELUP) shift_view(ztangent(-0.05*shiftmul) * camera_speed), didsomething = true, playermoved = false;
-    if(sym == PSEUDOKEY_WHEELDOWN) shift_view(ztangent(0.05*shiftmul) * camera_speed), didsomething = true, playermoved = false;
+    if(sym == PSEUDOKEY_WHEELUP) shift_view(ztangent(-0.05*shiftmul) * camera_speed), didsomething = true, playermoved = false, currently_scrolling = true;
+    if(sym == PSEUDOKEY_WHEELDOWN) shift_view(ztangent(0.05*shiftmul) * camera_speed), didsomething = true, playermoved = false, currently_scrolling = true;
     }
 
   #if CAP_RUG
@@ -519,7 +523,7 @@ EX void handlePanning(int sym, int uni) {
   if(sym == PSEUDOKEY_WHEELUP && GDIM == 2) {
     ld jx = (mousex - current_display->xcenter - .0) / current_display->radius / 10;
     ld jy = (mousey - current_display->ycenter - .0) / current_display->radius / 10;
-    playermoved = false;
+    playermoved = false; currently_scrolling = true;
     rotate_view(gpushxto0(hpxy(jx * camera_speed, jy * camera_speed)));
     sym = 1;
     }
@@ -776,6 +780,10 @@ EX bool mouseaiming(bool shmupon) {
 
 EX purehookset hooks_control;
 
+EX bool stillscreen;
+
+EX bool currently_scrolling;
+
 EX void mainloopiter() {
   GLWRAP;
   DEBB(DF_GRAPH, ("main loop\n"));
@@ -803,7 +811,7 @@ EX void mainloopiter() {
   timetowait = lastframe + 1000 / cframelimit - ticks;
 
   cframelimit = vid.framelimit;
-  if(outoffocus && cframelimit > 10) cframelimit = 10;  
+  if(stillscreen && cframelimit > 10) cframelimit = 10;
   
   bool normal = cmode & sm::NORMAL;
   
@@ -851,8 +859,11 @@ EX void mainloopiter() {
   timetowait = 0;
 #endif
 
-  if(timetowait > 0)
+  if(timetowait > 0) {
+    #if !CAP_SDL2
     SDL_Delay(timetowait);
+    #endif
+    }
   else {
     ors::check_orientation();
     if(cmode & sm::CENTER) {
@@ -923,6 +934,7 @@ EX void mainloopiter() {
   forcetarget = anyshiftclick;
   
   didsomething = false;
+  currently_scrolling = false;
   
   if(vid.shifttarget&1) {
     #if ISPANDORA
@@ -1059,6 +1071,14 @@ EX void mainloopiter() {
   if((cmode & (sm::DRAW | sm::MAP)) && holdmouse && anims::ma && mouseover)
     handlekey(getcstat, getcstat);
 
+  if(((SDL_GetMouseState(NULL, NULL) & SDL_BUTTON_MMASK)) && !mouseout2())
+    currently_scrolling = true;
+
+  #if CAP_SDL2
+  if(timetowait > 0) {
+    if(SDL_WaitEventTimeout(&ev, timetowait)) handle_event(ev);
+    }
+  #endif
   while(SDL_PollEvent(&ev)) handle_event(ev);
   fix_mouseh();
 

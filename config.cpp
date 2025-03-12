@@ -222,8 +222,9 @@ template<class T> struct enum_parameter : list_parameter {
   bool load_from_animation(const string& s) override {
     if(anim_value != *value) return false;
     load(s);
+    bool changed = anim_value != *value;
     anim_value = *value;
-    return true;
+    return changed;
     }
   void load_as_animation(const string& s) override {
     load(s);
@@ -278,8 +279,9 @@ template<class T> struct val_parameter : public parameter {
   bool load_from_animation(const string& s) override {
     if(anim_value != *value) return false;
     load(s);
+    bool changed = anim_value != *value;
     anim_value = *value;
-    return true;
+    return changed;
     }
   void load_as_animation(const string& s) override {
     load(s);
@@ -512,8 +514,9 @@ struct custom_parameter : public parameter {
   bool load_from_animation(const string& s) override {
     if(anim_value != get_cld()) return false;
     load(s);
+    auto bak = anim_value;
     anim_value = get_cld();
-    return true;
+    return anim_value != bak;
     }
   void load_as_animation(const string& s) override {
     load(s);
@@ -3591,11 +3594,10 @@ EX void showCustomizeChar() {
   flat_model_enabler fme;
 
   initquickqueue();
-  transmatrix V = atscreenpos(vid.xres/2, firsty, scale);
-  
+  shiftmatrix V = atscreenpos(vid.xres/2, firsty, scale);
   double alpha = atan2(mousex - vid.xres/2, mousey - firsty) - 90._deg;
   V = V * spin(alpha);
-  drawMonsterType(moPlayer, NULL, shiftless(V), 0, cc_footphase / scale, NOCOLOR);
+  drawMonsterType(moPlayer, NULL, V, 0, cc_footphase / scale, NOCOLOR);
   quickqueue();
   
   keyhandler = [] (int sym, int uni) {
