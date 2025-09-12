@@ -896,7 +896,7 @@ void geometry_information::make_3d_models() {
       &shEagle, &shFemaleBody, &shFlailMissile, &shGadflyWing, &shGargoyleWings, &shHawk, &shJiangShi, &shKnife,
       &shPBody, &shPHead, &shRaiderBody, &shReptileBody, &shSkeletonBody, &shTongue, &shTrapArrow, &shTrylobite,
       &shWaterElemental, &shWolfBody, &shYeti, &shWormHead, &shWormHead, &shDragonHead, &shDragonSegment, &shDragonTail,
-      &shTentacleX, &shTentHead, &shILeaf[0], &shILeaf[1], &shWormSegment, &shSmallWormSegment,
+      &shTentHead, &shILeaf[0], &shILeaf[1], &shWormSegment, &shSmallWormSegment,
       &shWormTail, &shSmallWormTail, &shFrogBody })
       make_shadow(*sh);
     
@@ -1135,7 +1135,7 @@ void geometry_information::make_3d_models() {
     }
 
   shift_shape(shBoatOuter, FLOOR);
-  shift_shape(shBoatInner, (FLOOR+LAKE)/2);
+  shift_shape(shBoatInner, (FLOOR+WATERLEVEL)/2);
   
   for(int i=0; i<14; i++)
     shift_shape(shTriheptaSpecial[i], FLOOR);

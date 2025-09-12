@@ -93,7 +93,6 @@ EX int get_valence(cellwalker bb, int dir, bool& ok) {
 EX void set_and_wall(cell *c, eLand l) {
   setland(c, l);
   if(c->bardir == NODIR) {
-    c->barleft = NOWALLSEP_USED;
     c->bardir = NOBARRIERS;
     }
   }
@@ -430,6 +429,11 @@ EX void extendBarrierBack(cell *c) {
   extendBarrier(bb.at);
   }
 
+EX bool barrier_land(eLand l) {
+  return among(l, laBarrier, laElementalWall, laHauntedWall, laOceanWall, laMirrorWall, laMirrorWall2, laMercuryRiver);
+  }
+
+
 EX void general_barrier_extend(cell *c) {
 
   eLand ws = c->barleft;
@@ -438,7 +442,6 @@ EX void general_barrier_extend(cell *c) {
   c->barleft = NOWALLSEP_USED;
   eLand l1 = c->land;
   eLand l2 = c->barright;
-
   if(!on_wall(ws)) {
     if(c->bardir == NODIR) {
       println(hlog, "error: NODIR barrier at ", c);
@@ -574,12 +577,8 @@ EX void extendBarrier(cell *c) {
 
   extendcheck(c);
   
-  // printf("build barrier at %p", hr::voidp(c));
-  if(c->land == laBarrier || c->land == laElementalWall || c->land == laHauntedWall || c->land == laOceanWall || 
-    c->land == laMirrorWall || c->land == laMirrorWall2 || c->land == laMercuryRiver) { 
-    // printf("-> ready\n");
-    return;
-    }
+  if(barrier_land(c->land)) return;
+
 //  if(c->wall == waWaxWall) return;
   if(c->mpdist > BARLEV) {
     // printf("-> too far\n");
@@ -616,8 +615,14 @@ EX void extendBarrier(cell *c) {
       }
     if(buildBarrier6(cw, 2)) return;    
     }
-    
+
   if(land_structure == lsCursedWalls && c->barleft != laMirror && c->barright != laMirror && hrand(100) < 80 && !among(laCrossroads2, c->barleft, c->barright)) {
+    cellwalker cw(c, c->bardir);
+    cw = cw + wstep + 3 + wstep - 1;
+    if(buildBarrier6(cw, c->barright, c->barleft)) return;
+    }
+
+  if(among(laCrossroads6, c->barleft, c->barright) && hrand(100) < 80) {
     cellwalker cw(c, c->bardir);
     cw = cw + wstep + 3 + wstep - 1;
     if(buildBarrier6(cw, c->barright, c->barleft)) return;
@@ -839,7 +844,12 @@ EX bool buildBarrier6(cellwalker cw, eLand m0, eLand m1) {
     setland((b[d+1]-2).cpeek(), m1);
     setland((b[d+1]+2).cpeek(), m0);
     }
-  if(hrand(100) < curse_percentage) {
+  int cp = curse_percentage;
+  if(m0 == laCrossroads6 || m1 == laCrossroads6) {
+    cp = 25;
+    if(m0 == laCursed || m1 == laCursed) cp = 100;
+    }
+  if(hrand(100) < cp) {
     setland(cw.at, laCursed);
     cw.at->wall = waRubble;
     cw.at->monst = moHexer;

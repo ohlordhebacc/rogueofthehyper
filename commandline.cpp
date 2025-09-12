@@ -173,7 +173,7 @@ int arg::readCommon() {
   else if(argis("-rsrc")) { PHASE(1); shift(); rsrcdir = args(); }
   else if(argis("-nogui")) { PHASE(1); noGUI = true; }
 #ifndef EMSCRIPTEN
-#if CAP_SDL
+#if CAP_SDLTTF
   else if(argis("-font")) { PHASE(1); shift(); font_id = isize(font_filenames); font_filenames.push_back(args()); font_names.push_back({args(), "commandline"}); }
 #endif
 #endif
@@ -327,10 +327,12 @@ int arg::readCommon() {
     }
 
   else if(argis("-save-mode")) {
+    PHASEFROM(2);
     save_mode_to_file(shift_args());
     }
 
   else if(argis("-load-mode")) {
+    PHASEFROM(2);
     try {
       load_mode_from_file(shift_args());
       }

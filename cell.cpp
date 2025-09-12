@@ -1562,7 +1562,7 @@ EX void clearCellMemory() {
     if(allmaps[i])
       delete allmaps[i];
   allmaps.clear();
-  currentmap = nullptr;
+  currentmap = nullptr; hybrid::pmap = nullptr; fake::pmap = nullptr; gp::pmap = nullptr;
   last_cleared = NULL;
   saved_distances.clear();
   dists_computed.clear();
@@ -1744,11 +1744,8 @@ EX bool is_boundary(cell *c) {
   }
 
 /** compute the distlimit for a tessellation automatically */
-EX int auto_compute_range(cell *c) {  
-  if(sphere) {
-    cgi.base_distlimit = SEE_ALL;
-    return SEE_ALL;
-    }
+EX int auto_compute_range(cell *c) {
+  if(sphere) return SEE_ALL;
   cgi.base_distlimit = 0;
   const int expected_count = 400;
   celllister cl(c, 1000, expected_count, NULL);
@@ -1762,6 +1759,44 @@ EX int auto_compute_range(cell *c) {
     }
   if(isize(cl.dists) * z > expected_count * expected_count) d--;
   return ginf[geometry].distlimit[0] = cgi.base_distlimit = d;
+  }
+
+EX int getDistLimit() {
+  auto& res = cgi.base_distlimit;
+  if(res) return res;
+  if(arb::in() && arb::current.range)
+    return res = arb::current.range;
+  if(arcm::in() || arb::in()) {
+    if(!currentmap) return 0;
+    cell *c = currentmap->gamestart();
+    if(!c) return 0;
+    return res = auto_compute_range(c);
+    }
+  if(mhybrid)
+    return res = hybrid::in_underlying_geometry([&] {
+      return max(getDistLimit()-1, 0);
+      });
+  res = ginf[geometry].distlimit[!BITRUNCATED];
+  if(GOLDBERG_INV) {
+    if(!cgi.gpdata) return res = 0;
+    println(hlog, "original = ", res);
+    using gp::param;
+    auto& scale = cgi.gpdata->scale;
+    if(S3 == 3)
+      res = (res + log(scale) / log(2.618)) / scale;
+    else
+      res = 3 * max(param.first, param.second) + 2 * min(param.first, param.second);
+    if(S7 == 12)
+      res = 2 * param.first + 2 * param.second + 1;
+    if(res > SEE_ALL)
+      res = SEE_ALL;
+    }
+  if(IRREGULAR) {
+    auto scale = irr::compute_scale();
+    res = (res + log(scale) / log(2.618)) / scale;
+    if(res > 25) res = 25;
+    }
+  return res;
   }
 
 EX cell out_of_bounds;

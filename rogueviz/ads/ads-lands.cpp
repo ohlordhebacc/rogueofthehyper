@@ -1,3 +1,6 @@
+// Relative Hell: specification of the lands in the anti-de Sitter game
+// Copyright (C) 2024-2025 Zeno Rogue, see '../../hyper.cpp' for details
+
 namespace hr {
 
 namespace ads_game {
@@ -26,6 +29,8 @@ color_t empty_color(cell *c) {
       return 0x301010FF;
     case laJungle:
       return 0x103010FF;
+    case laAsteroids:
+      return 0xFF;
     default:
       return 0x181818FF;
     }
@@ -41,6 +46,8 @@ color_t empty_outline(cell *c) {
       return 0xC08080FF;
     case laJungle:
       return 0x80C080FF;
+    case laAsteroids:
+      return 0xFF;
     default:
       return 0x181818FF;
     }

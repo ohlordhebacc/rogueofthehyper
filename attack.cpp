@@ -514,8 +514,10 @@ EX void killMonster(cell *c, eMonster who, flagtype deathflags IS(0)) {
     history::killhistory.push_back(make_pair(c,m));
     }
 #endif
-  
+
+#if CAP_COMPLEX2
   if(m == moHunterGuard) ambush::guard_attack();
+#endif
 
   if(m == moGolemMoved) m = moGolem;
   if(m == moKnightMoved) m = moKnight;
@@ -1034,7 +1036,7 @@ EX bool attackMonster(cell *c, flagtype flags, eMonster killer) {
   int ntk = tkills();
   int ntkt = killtypes();
     
-  if(tkt < R20 && ntkt >= R20 && in_full_game()) {
+  if(tkt < R20 && ntkt >= R20 && in_full_game() && isLandIngame(laDragon)) {
     addMessage(XLAT("You hear a distant roar!"));
     playSound(NULL, "message-roar");
     }
@@ -1054,22 +1056,23 @@ EX bool attackMonster(cell *c, flagtype flags, eMonster killer) {
   if(tk < 10 && ntk >= 10 && in_full_game() && !big_unlock)
     addMessage(XLAT("Good to know that your fighting skills serve you well in this strange world."));
 
-  if(tk < R100/2 && ntk >= R100/2 && in_full_game())
+  if(tk < R100/2 && ntk >= R100/2 && in_full_game() && isLandIngame(laGraveyard))
     addMessage(XLAT("You wonder where all these monsters go, after their death..."));
 
-  if(tk < R100 && ntk >= R100 && in_full_game())
+  if(tk < R100 && ntk >= R100 && in_full_game() && isLandIngame(laGraveyard))
     addMessage(XLAT("You feel that the souls of slain enemies pull you to the Graveyard..."));
   
-  if(!tu && landUnlocked(laTrollheim) && in_full_game()) {
+  if(!tu && landUnlocked(laTrollheim) && in_full_game() && isLandIngame(laTrollheim)) {
     playSound(c, "message-troll");
     addMessage(XLAT("%The1 says, \"I die, but my clan in Trollheim will avenge me!\"", m));
     }
 
-  if(!eu && landUnlocked(laElementalWall) && in_full_game())
+  if(!eu && landUnlocked(laElementalWall) && in_full_game() && isLandIngame(laElementalWall))
     addMessage(XLAT("After killing %the1, you feel able to reach the Elemental Planes!", m));
   
   if(m == moVizier && c->monst != moVizier && kills[moVizier] == 1 && in_full_game()) {
-    addMessage(XLAT("Hmm, he has been training in the Emerald Mine. Interesting..."));
+    if(isLandIngame(laEmerald))
+      addMessage(XLAT("Hmm, he has been training in the Emerald Mine. Interesting..."));
     princess::forceMouse = true;
     }
   
@@ -1191,6 +1194,7 @@ EX vector<cell*> gun_targets(cell *c) {
       if(passable(c2, c1, P_BULLET | P_FLYING | P_MONSTER))
         if(cl.add(c2)) dists.push_back(dists[i] + 1);
     }
+  cl.remove(c);
   return cl.lst;
   }
 

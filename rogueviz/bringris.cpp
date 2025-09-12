@@ -1,5 +1,8 @@
 // non-Euclidean falling block game, implemented using the HyperRogue engine
-// Copyright (C) 2011-2021 Zeno Rogue, see 'hyper.cpp' for details
+// Copyright (C) 2011-2021 Zeno Rogue, see '../hyper.cpp' for details
+
+// compile with: ./mymake -O3 -rv rogueviz/bringris.cpp rogueviz/subquotient.cpp and then launch with -bringris
+// add -DBRINGRIS for standalone Bringris
 
 #define BRINGRIS_VER "2.0"
 
@@ -752,9 +755,9 @@ void new_piece() {
   if(shape_conflict(at)) {
     playSound(cwt.at, "die-bomberbird");
     state = tsGameover;
-    #if RCVOL
+    #if RVCOL
     if(cur.pro_game && cur.max_piece == bgeoms[bgeom].default_max_piece)
-      rv_leaderboard(bgeoms[bgeom].name, cur.score);
+      rogueviz::rv_leaderboard("Bringris: " + bgeoms[bgeom].name, cur.score, 1, rvlc::num, lalign(0, cur.bricks, " ", cur.cubes, " ", cur.completed));
     #endif
     save();
     }
@@ -826,7 +829,7 @@ void find_lines() {
     cur.completed += points;
     playSound(cwt.at, points == 1 ? "pickup-gold" : "orb-mind");
     #if RVCOL
-    if(points == 4 && cur.pro_game && cur.max_piece == 4 && bgeoms[bgeom].default_max_piece == 4) rv_achievement("BRINGRISFOUR");
+    if(points == 4 && cur.pro_game && cur.max_piece == 4 && bgeoms[bgeom].default_max_piece == 4) rogueviz::rv_achievement("BRINGRISFOUR");
     #endif
     }
   }
@@ -1028,7 +1031,7 @@ void shift_block(int dir, bool camera_only) {
   if(camera_only || !shape_conflict(at1)) {
     // playSound(cwt.at, "hit-crush1");
     #if RVCOL
-    if(check_bshift(at, at1)) rv_achievement("BSHIFT");
+    if(check_bshift(at, at1)) rogueviz::rv_achievement("BSHIFT");
     #endif
     at = at1;
     if(solnil) {
@@ -1280,18 +1283,27 @@ void draw_screen(int xstart, bool show_next) {
 
 void create_game();
 
-void geometry_menu() {
+int score_bgeom, score_max_piece;
+
+void geometry_menu(bool for_scores) {
+  auto& c_geom = for_scores ? score_bgeom : bgeom;
+  auto& c_max = for_scores ? score_max_piece : cur.max_piece;
   clearMessages();
-  dialog::init("Bringris geometries");
+  cmode = sm::VR_MENU | sm::NOSCR; gamescreen();
+  dialog::init(for_scores ? "highscores for..." : "Bringris geometries");
   dialog::addBreak(100);
   int total_stars = 0;
   for(int i=0; i<isize(bgeoms); i++) total_stars += bgeoms[i].stars;
   for(int i=0; i<isize(bgeoms); i++) {
-    if(total_stars >= bgeoms[i].stars_needed || !stars_enabled) {
-      dialog::addTitle(bgeoms[i].name, i == bgeom ? 0xFF00 : 0xFF0000, 150);
+    if(total_stars >= bgeoms[i].stars_needed || !stars_enabled || unlock_all) {
+      dialog::addTitle(bgeoms[i].name, i == c_geom ? 0xFF00 : 0xFF0000, 150);
       dialog::items.back().key = 'a' + i;
-      dialog::add_action([i] {
-        enable_bgeom(i);
+      dialog::add_action([i, for_scores] {
+        if(for_scores) {
+          score_bgeom = i;
+          score_max_piece = bgeoms[score_bgeom].default_max_piece;
+          }
+        else enable_bgeom(i);
         });
       dialog::addInfo(bgeoms[i].cap);
       dialog::items.back().key = 'a' + i;
@@ -1313,10 +1325,11 @@ void geometry_menu() {
       }
     }
   dialog::addBreak(100);
-  dialog::addSelItem("max piece", its(cur.max_piece), 'M');
-  dialog::add_action([] {
-    cur.max_piece++;
-    if(cur.max_piece == 6) cur.max_piece = 2;
+  dialog::addSelItem("max piece", its(c_max), 'M');
+  dialog::add_action([&c_max, for_scores] {
+    c_max++;
+    if(c_max == 6) c_max = 2;
+    if(for_scores) return;
     create_game();
     state = tsPreGame;
     });
@@ -1327,15 +1340,18 @@ void geometry_menu() {
   else
     dialog::addBreak(100);
 
-  dialog::addBreak(100);
-  if(stars_enabled) {
-    if(total_stars < 6000)
-    dialog::addHelp("Collect stars to unlock more spaces!\n\n"
-      "training mode: 1 block removed = 1 star\n\n"
-      "expert mode: 1 block removed = 5 stars\n\n"
-      "only best score per space counts");
-    dialog::addInfo("currently " + its(total_stars) + " stars");
+  if(!for_scores) {
+    dialog::addBreak(100);
+    if(stars_enabled) {
+      if(total_stars < 6000)
+      dialog::addHelp("Collect stars to unlock more spaces!\n\n"
+        "training mode: 1 block removed = 1 star\n\n"
+        "expert mode: 1 block removed = 5 stars\n\n"
+        "only best score per space counts");
+      dialog::addInfo("currently " + its(total_stars) + " stars");
+      }
     }
+
   dialog::addBack();
   dialog::display();
   }
@@ -1398,10 +1414,10 @@ void visual_menu() {
   }
   
 void settings_menu() {
-  emptyscreen();
+  cmode = sm::VR_MENU | sm::NOSCR; gamescreen();
   dialog::init("Bringris settings");
   dialog::addItem("alternative geometry", 'g');
-  dialog::add_action_push(geometry_menu);
+  dialog::add_action_push([] { geometry_menu(false); });
   dialog::addItem("visuals & Virtual Reality", 'v');
   dialog::add_action_push(visual_menu);
   dialog::addItem("configure keys", 'k');
@@ -1429,23 +1445,24 @@ void settings_menu() {
 bool hi_pro;
 
 void hiscore_menu() {
-  emptyscreen();
+  cmode = sm::VR_MENU | sm::NOSCR; gamescreen();
   dialog::init("High scores");
-  string s = bgeoms[bgeom].name;
-  if(cur.max_piece != bgeoms[bgeom].default_max_piece) s = s + " (block " + its(cur.max_piece) + ")";
-  dialog::addInfo(s);
+  string s = bgeoms[score_bgeom].name;
+  if(score_max_piece != bgeoms[score_bgeom].default_max_piece) s = s + " (block " + its(score_max_piece) + ")";
+  dialog::addItem(s, 'g');
+  dialog::add_action_push([] { geometry_menu(true); });
   dialog::addItem(hi_pro ? "expert mode" : "training mode", 'm');
   dialog::add_action([] { hi_pro = !hi_pro; });
   vector<gamedata*> v;
   for(auto& ad: allsaves)
-    if(ad.bgeom_name == bgeoms[bgeom].name && ad.max_piece == cur.max_piece && ad.pro_game == hi_pro)
+    if(ad.bgeom_name == bgeoms[score_bgeom].name && ad.max_piece == score_max_piece && ad.pro_game == hi_pro)
       v.push_back(&ad);
   sort(v.begin(), v.end(), [] (gamedata* g1, gamedata* g2) { return g1->sorter() > g2->sorter(); });
   dialog::start_list(900, 900, '1');
   for(auto ad: v) {
     dialog::addSelItem(ad->myname, hi_pro ? fts(ad->score) : its(ad->completed), dialog::list_fake_key++);
     dialog::add_action_push([ad] {
-      emptyscreen();
+      cmode = sm::VR_MENU | sm::NOSCR; gamescreen();
       dialog::init();
       if(hi_pro) dialog::addSelItem("score", fts(ad->score), 's');
       dialog::addSelItem("levels", fts(ad->completed), 'l');
@@ -1506,13 +1523,18 @@ void adjust_animation(ld part) {
 
 bool next_fail = false;
 
-int TEXTURESIZE = 256;
+int BRINGRIS_TEXTURESIZE = 256;
 
 int nxmin, nxmax, nymin, nymax;
 
+auto ah = addHook(hooks_resetGL, 500, [] {
+  println(hlog, "hooks_resetGL called");
+  if(next_buffer) { delete next_buffer; next_buffer = nullptr; }
+  });
+
 void render_next(int xstart) {
   if(!next_buffer && !next_fail) {
-    next_buffer = new renderbuffer(TEXTURESIZE, TEXTURESIZE, true);
+    next_buffer = new renderbuffer(BRINGRIS_TEXTURESIZE, BRINGRIS_TEXTURESIZE, true);
     if(!next_buffer->valid) {
       next_fail = true;
       delete next_buffer;
@@ -1549,8 +1571,8 @@ void render_next(int xstart) {
   if(1) {
     resetbuffer rb;
     next_buffer->enable();
-    dynamicval<int> dx(vid.xres, TEXTURESIZE);
-    dynamicval<int> dy(vid.yres, TEXTURESIZE);
+    dynamicval<int> dx(vid.xres, BRINGRIS_TEXTURESIZE);
+    dynamicval<int> dy(vid.yres, BRINGRIS_TEXTURESIZE);
     dynamicval<ld> dxmi(current_display->xmin, 0);
     dynamicval<ld> dxma(current_display->xmax, 1);
     dynamicval<ld> dymi(current_display->ymin, 0);
@@ -1744,6 +1766,7 @@ void run() {
 
     dialog::handleNavigation(sym, uni);
     if(in_menu && sym == 'q' && !ISWEB) {
+      if(cur.bricks > 0) save();
       in_bringris = false;
       quitmainloop = true;
       }
@@ -1859,6 +1882,7 @@ void run() {
       pushScreen(settings_menu);
       }
     if(in_menu && sym == 'h') {
+      score_bgeom = bgeom; score_max_piece = cur.max_piece;
       pushScreen(hiscore_menu);
       }
     if(in_menu && sym == 'x') {
@@ -2171,11 +2195,11 @@ int args() {
   }
 
 void default_config() {
-  multi::change_default_key(lps_bringris, '\r', 16 + 8);
-  multi::change_default_key(lps_bringris, 'q',  16 + 9);
-  multi::change_default_key(lps_bringris, 'e',  16 + 10);
-  multi::change_default_key(lps_bringris, ' ',  16 + 11);
-  multi::change_default_key(lps_bringris, 'p',  16 + 12);
+  multi::change_default_key(lps_bringris, SDL12('\r', SDL_SCANCODE_RETURN), 16 + 8);
+  multi::change_default_key(lps_bringris, SDL12('q', SDL_SCANCODE_Q), 16 + 9);
+  multi::change_default_key(lps_bringris, SDL12('e', SDL_SCANCODE_E), 16 + 10);
+  multi::change_default_key(lps_bringris, SDL12(' ', SDL_SCANCODE_SPACE), 16 + 11);
+  multi::change_default_key(lps_bringris, SDL12('p', SDL_SCANCODE_P), 16 + 12);
 
   param_i(bgeom, "bringris-geometry", 0);
   param_b(stars_enabled, "bringris_stars", true);
@@ -2193,9 +2217,13 @@ void default_config() {
   lps_add(lps_bringris, vid.plevel_factor, 0.5);
   lps_add(lps_bringris, vid.axes3, false);
 
+  lps_add(lps_bringris, vid.cells_drawn_limit);
+  for(auto& g: sightranges) lps_add(lps_bringris, g);
+
   lps_add(lps_bringris_explore, mouseaim_sensitivity, 0.01);
   lps_add(lps_bringris_explore, camera_speed, 2);
   lps_add(lps_bringris_explore, smooth_scrolling, true);
+  lps_add(lps_bringris_explore, game_keys_scroll, true);
 
   lps_add(lps_bringris_play, mouseaim_sensitivity, 0);
 
@@ -2262,10 +2290,16 @@ void save(const gamedata& sd) {
   #endif
   }
 
+void update_stars(bgeometry& g, const gamedata &gd) {
+  if(g.name == gd.bgeom_name && g.default_max_piece == gd.max_piece)
+    g.stars = max(g.stars, (gd.pro_game ? 5 : 1) * gd.completed * gd.levelsize);
+  }
+
 void save() {
   fill_gamedata();
   save(cur);
   allsaves.push_back(cur);
+  update_stars(bgeoms[bgeom], cur);
   }
 
 void load() {
@@ -2286,8 +2320,7 @@ void load() {
       gd.pro_game = gd.score >= 0;
       for(int i=0; i<=gd.well_size; i++) gd.lmap.push_back(scanline_noblank(f));
       allsaves.push_back(gd);
-      for(auto& g: bgeoms) if(g.name == gd.bgeom_name && g.default_max_piece == gd.max_piece)
-        g.stars = max(g.stars, (gd.pro_game ? 5 : 1) * gd.completed * gd.levelsize);
+      for(auto& g: bgeoms) update_stars(g, gd);
       }
     }
   }

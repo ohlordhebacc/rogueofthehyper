@@ -565,8 +565,15 @@ EX namespace gp {
     };
 
   #define corner_coords (S3==3 ? corner_coords6 : corner_coords4)
+
+  EX hookset<bool(const transmatrix& corners, const hyperpoint& c, hyperpoint& h)> hooks_cornmul;
+  EX hookset<void(const transmatrix& corners)> hooks_init_cornmul;
   
-  hyperpoint cornmul(const transmatrix& corners, const hyperpoint& c) {
+  EX hyperpoint cornmul(const transmatrix& corners, const hyperpoint& c) {
+
+    hyperpoint h;
+    if(callhandlers(false, hooks_cornmul, corners, c, h)) return h;
+
     if(sphere && S3 == 3) {
       ld cmin = c[0] * c[1] * c[2] * (6 - S7);
       return corners * point3(c[0] + cmin, c[1] + cmin, c[2] + cmin);
@@ -641,6 +648,7 @@ EX namespace gp {
       set_column(cgi.gpdata->rotator, i, ac);
       }
 
+    callhooks(hooks_init_cornmul, dir_matrix(0));
 
     cgi.gpdata->Tf.resize(S7);
 
@@ -700,7 +708,8 @@ EX namespace gp {
       else
         cgi.gpdata->area = x * x + y * y;
       next = point3(x+y/2., -y * sqrt(3) / 2, 0);
-      ld scale = 1 / hypot_d(2, next);
+      auto& scale = cgi.gpdata->scale;
+      scale = 1 / hypot_d(2, next);
       if(!GOLDBERG) scale = 1;
       if(special_fake()) scale = 1;
       cgi.crossf *= scale;
@@ -710,14 +719,6 @@ EX namespace gp {
 //    spin = spintox(next);
 //    ispin = rspintox(next);
       cgi.gpdata->alpha = -atan2(next[1], next[0]) * 6 / S7;
-      if(S3 == 3)
-        cgi.base_distlimit = (cgi.base_distlimit + log(scale) / log(2.618)) / scale;
-      else
-        cgi.base_distlimit = 3 * max(param.first, param.second) + 2 * min(param.first, param.second);
-      if(S7 == 12)
-        cgi.base_distlimit = 2 * param.first + 2 * param.second + 1;
-      if(cgi.base_distlimit > SEE_ALL)
-        cgi.base_distlimit = SEE_ALL;
       DEBB(DF_GEOM | DF_POLY, ("scale = ", scale));
       }
     }
@@ -976,6 +977,9 @@ EX namespace gp {
       dialog::addItem(XLAT("dual of current"), 'D');
       dialog::add_action(dual_of_current);
       }
+
+    if(GOLDBERG_INV) add_edit(gp::su);
+    else dialog::addBreak(100);
     
     dialog::addBreak(100);
     dialog::addHelp();
@@ -1222,8 +1226,10 @@ EX namespace gp {
       }
 
     transmatrix relative_matrixc(cell *c2, cell *c1, const hyperpoint& hint) override {
-      c1 = mapping[c1];
-      c2 = mapping[c2];
+      if(!mapping.count(c1)) { rate_limited_error("c1 is bad", lalign(0, " c1 = ", c1)); return Id; }
+      if(!mapping.count(c2)) { rate_limited_error("c2 is bad", lalign(0, " c2 = ", c2)); return Id; }
+      c1 = mapping.at(c1);
+      c2 = mapping.at(c2);
       return in_underlying([&] { return currentmap->relative_matrix(c2, c1, hint); });
       }
 
@@ -1411,6 +1417,11 @@ EX namespace gp {
           }
         }
       return C0;
+      }
+
+    int pattern_value(cell *c) override {
+      auto c1 = get_mapped(c, 0);
+      return UIU(currentmap->pattern_value(c1));
       }
     };
 

@@ -1,8 +1,9 @@
 /* Main file of Relative Hell. */
 /* Compile with mymake -O3 -rv rogueviz/ads/ads-game */
 /* Best run with -ads-menu; more detailed options are available too */
+/* You can also add -DRELHELL for standalone Relative Hell */
 
-#define VER_RH "1.0"
+#define VER_RH "1.1"
 
 #ifdef RELHELL
 
@@ -20,7 +21,8 @@
 #define CAP_ARCM 0
 #define CAP_HISTORY 0
 #define CAP_STARTANIM 0
-#include "../hyper.cpp"
+#include "../../hyper.cpp"
+#include "../presentation.cpp"
 
 namespace rogueviz { std::vector<hr::reaction_t> cleanup; }
 
@@ -51,20 +53,20 @@ namespace ads_game {
 /* ADS-specific keys */
 
 void set_default_keys() {
-  multi::change_default_key(lps_relhell, 'p', 16 + 9);
-  multi::change_default_key(lps_relhell, 't', 16 + 10);
-  multi::change_default_key(lps_relhell, 'o', 16 + 11);
-  multi::change_default_key(lps_relhell, 'm', 16 + 12);
-  multi::change_default_key(lps_relhell, 'i', 16 + 13);
-  multi::change_default_key(lps_relhell, 'k', 16 + 14);
-  multi::change_default_key(lps_relhell, 'l', 16 + 15);
+  multi::change_default_key(lps_relhell, SDL12('p', SDL_SCANCODE_P), 16 + 9);
+  multi::change_default_key(lps_relhell, SDL12('t', SDL_SCANCODE_T), 16 + 10);
+  multi::change_default_key(lps_relhell, SDL12('o', SDL_SCANCODE_O), 16 + 11);
+  multi::change_default_key(lps_relhell, SDL12('m', SDL_SCANCODE_M), 16 + 12);
+  multi::change_default_key(lps_relhell, SDL12('i', SDL_SCANCODE_I), 16 + 13);
+  multi::change_default_key(lps_relhell, SDL12('k', SDL_SCANCODE_K), 16 + 14);
+  multi::change_default_key(lps_relhell, SDL12('l', SDL_SCANCODE_L), 16 + 15);
   }
 
-void restart() {
+void ads_sub_restart() {
 
   if(in_spacetime()) {
     switch_spacetime();
-    restart();
+    ads_sub_restart();
     switch_spacetime();
     return;
     }
@@ -77,6 +79,8 @@ void restart() {
 
   ci_at.clear();
   displayed.clear();
+  history.clear();
+  in_replay = false;
 
   gen_terrain(vctr, ci_at[vctr], -2);
   forCellEx(c1, vctr) ci_at[c1].type = wtNone;
@@ -85,8 +89,22 @@ void restart() {
 
   paused = false;
   ship_pt = 0;
+  no_param_change = all_params_default();
   init_gamedata();
   }
+
+void ads_restart() {
+  bool b = in_spacetime();
+  stop_game();
+  run_ads_game();
+  // to ensure correct LPS, switch reverse first
+  switch_spacetime_to(!b);
+  switch_spacetime_to(b);
+  }
+
+purehookset hooks_pre_ads_start;
+
+bool changed_structure = false;
 
 void run_ads_game_hooks() {
   rogueviz::rv_hook(hooks_global_mouseover, 100, generate_mouseovers);
@@ -98,6 +116,10 @@ void run_ads_game_hooks() {
   rogueviz::rv_hook(shmup::hooks_turn, 0, ads_turn);
   rogueviz::rv_hook(anims::hooks_anim, 100, replay_animation);
   rogueviz::rv_hook(hooks_nextland, 0, ads_nextland);
+  rogueviz::rv_hook(hooks_music, 100, [] (eLand& l) { l = vctr->land; return false; });
+  if(!changed_structure) {
+    specialland = laCrossroads; land_structure = lsNiceWalls;
+    }
   }
 
 void run_size_hooks() {
@@ -117,6 +139,7 @@ void run_ads_game() {
   run_size_hooks();
   hybrid::reconfigure(); // we need to reconfigure to take scalefactor change into account
   run_ads_game_hooks();
+  callhooks(hooks_pre_ads_start);
   start_game();
 
   starting_point = hybrid::get_where(cwt.at).first;
@@ -137,7 +160,7 @@ void run_ads_game() {
   pmodel = mdDisk;
   cwt.at = centerover = currentmap->gamestart();
 
-  restart();
+  ads_sub_restart();
   }
 
 void add_ads_cleanup() {
@@ -171,6 +194,8 @@ void default_settings() {
   lps_add(lps_relhell, ccolor::rwalls, 0);
   lps_add(lps_relhell, vid.fov, 150.);
   lps_add(lps_relhell, specialland, laCrossroads);
+  lps_add(lps_relhell, land_structure, lsNiceWalls);
+  lps_add(lps_relhell, vid.creature_scale, 1);
 
   lps_add(lps_relhell_ds_spacetime_klein, pmodel, mdDisk);
 
@@ -196,7 +221,7 @@ void default_settings() {
   lps_add(lps_relhell, cs.haircolor, 0xC0FFC0FF);
   }
 
-void gamedata(hr::gamedata* gd) {
+void gamedata_store(struct hr::gamedata* gd) {
   gd->store(history);
   gd->store(ci_at);
   gd->store(rocks);
@@ -237,6 +262,7 @@ void change_scale(ld s) {
   rock_density /= (s * s);
   rock_max_rapidity *= s;
   ads_simspeed *= s;
+  ds_accel *= s;
   pconf.scale /= s;
   ads_how_much_invincibility *= s;
   ads_max_pdata.oxygen *= s;
@@ -252,7 +278,7 @@ auto shot_hooks =
 + arg::add3("-ads-menu", [] { set_config(); pushScreen(pick_the_game); })
 + arg::add3("-ads-scale", [] { arg::shift(); ld s = arg::argf(); change_scale(s); })
 + arg::add3("-ads-restart", restart)
-+ addHook(hooks_gamedata, 500, gamedata)
++ addHook(hooks_gamedata, 500, gamedata_store)
 + addHook(hooks_configfile, 100, [] {
     param_f(ads_how_much_invincibility, "ads_invinc")
     -> editable(0, TAU, TAU/4, "AdS invincibility time", "How long does the period of invincibility after crashing last, in absolute units.", 'i');
@@ -316,6 +342,14 @@ auto shot_hooks =
     -> editable(0, 100, 1, "tiles to generate per frame", "reduce if the framerate is low", 'G');
     param_i(draw_per_frame, "ads_draw_per_frame")
     -> editable(0, 3000, 0.1, "tiles to draw per frame", "reduce if the framerate is low", 'D');
+    param_i(draw_per_frame, "ads_draw_per_frame_equal")
+    -> editable(0, 3000, 0.1, "tiles to draw per frame -- extra tiles to draw when distances are equal", "reduce if the framerate is low", 'D');
+
+    param_f(time_scale, "rh_time_scale")
+    -> editable(0, 1, 0.1, "Relative Hell time label scale", "scaling factor for the time labels", 'T');
+
+    param_f(time_shift, "rh_time_shift")
+    -> editable(0, 1, 0.1, "Relative Hell time label shift", "shift for the time labels", 'U');
 
     param_i(XSCALE, "ds_xscale")
     -> editable(4, 512, 8, "x precision of Earth-de Sitter", "", 'x');
@@ -341,15 +375,28 @@ auto shot_hooks =
 #ifdef RELHELL
 auto hook1=
     addHook(hooks_config, 100, [] {
-      lps_enable(&lps_relhell);
-      enable_canvas();
-      if(arg::curphase == 1)
+      if(arg::curphase == 1) {
         conffile = "relhell.ini";
-      if(arg::curphase == 3) pushScreen(pick_the_game);
+        }
+      if(arg::curphase == 2) {
+        set_config();
+        enable_canvas();
+        }
+      if(arg::curphase == 3) {
+        showstartmenu = false;
+        popScreenAll();
+        pushScreen(pick_the_game);
+        }
       });
+
 #endif
 
-auto hook2 = addHook(hooks_configfile, 300, default_settings);
+auto hook2 = addHook(hooks_configfile, 300, default_settings)
+  + arg::add3("-relhell", [] {
+      set_config();
+      enable_canvas();
+      showstartmenu = false; popScreenAll(); pushScreen(pick_the_game);
+     });
 
 }
 }

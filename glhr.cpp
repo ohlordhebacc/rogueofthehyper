@@ -56,9 +56,8 @@ EX }
 
 EX void glError(const char* GLcall, const char* file, const int line) {
   GLenum errCode = glGetError();
-  if(errCode!=GL_NO_ERROR) {
-    println(hlog, hr::format("OPENGL ERROR #%i: in file %s on line %i :: %s",errCode,file, line, GLcall));
-    }
+  if(errCode!=GL_NO_ERROR)
+    rate_limited_error(hr::format("OPENGL ERROR #%i: in file %s on line %i :: %s",errCode,file, line, GLcall));
   }
 
 #if HDR
@@ -74,9 +73,8 @@ struct glwrap {
 
 void glwrap::act(const char *when) {
   GLenum errCode = glGetError();
-  if(errCode!=GL_NO_ERROR) {
-    println(hlog, hr::format("GL error %i %s: %s:%i", errCode, when, msg, line));
-    }
+  if(errCode!=GL_NO_ERROR)
+    rate_limited_error(hr::format("GL error %i %s: %s:%i", errCode, when, msg, line));
   }
 
 #if HDR
@@ -308,7 +306,7 @@ struct GLprogram {
   GLint uFog, uFogColor, uColor, tTexture, tInvExpTable, tAirMap, uMV, uProjection, uAlpha, uFogBase, uPP;
   GLint uPRECX, uPRECY, uPRECZ, uIndexSL, uIterations, uLevelLines, uSV, uRadarTransform;
   GLint uRotSin, uRotCos, uRotNil;
-  GLint uDepthScaling, uCamera, uDepth;
+  GLint uDepthScaling, uCamera, uDepth, uModelTrans;
   
   flagtype shader_flags;
   
@@ -379,7 +377,7 @@ GLprogram::GLprogram(string vsh, string fsh) {
     uAlpha = -1;
     uLevelLines = -1;
     uFogColor = -1;
-    uDepthScaling = uCamera = uDepth = -1;
+    uDepthScaling = uCamera = uDepth = uModelTrans = -1;
     
     uColor = tTexture = tInvExpTable = tAirMap = -1;
     uFogBase = -1;
@@ -445,6 +443,7 @@ GLprogram::GLprogram(string vsh, string fsh) {
   uDepth = glGetUniformLocation(_program, "uDepth");
   uDepthScaling = glGetUniformLocation(_program, "uDepthScaling");
   uCamera = glGetUniformLocation(_program, "uCamera");
+  uModelTrans = glGetUniformLocation(_program, "uModelTrans");
 
   uPRECX = glGetUniformLocation(_program, "PRECX");
   uPRECY = glGetUniformLocation(_program, "PRECY");
@@ -462,8 +461,8 @@ GLprogram::GLprogram(string vsh, string fsh) {
 
 GLprogram::~GLprogram() {
   glDeleteProgram(_program);
-  if(vertShader) glDeleteShader(vertShader), vertShader = 0;
-  if(fragShader) glDeleteShader(fragShader), fragShader = 0;
+  if(vertShader) glDeleteShader(vertShader);
+  if(fragShader) glDeleteShader(fragShader);
   }
 
 EX void set_index_sl(ld x) {
@@ -512,8 +511,8 @@ EX void set_modelview(const glmatrix& modelview) {
   auto& cur = current_glprogram;
   if(!cur) return;
 
-  if(detailed_shader) println(hlog, "\n*** ENABLING MODELVIEW:\n", modelview.as_stdarray());
-  if(detailed_shader) println(hlog, "\n*** ENABLING PROJECTION:\n", projection.as_stdarray());
+  if(detailed_shader) println(hlog, "*** ENABLING MODELVIEW:", kz(modelview.as_stdarray()));
+  if(detailed_shader) println(hlog, "*** ENABLING PROJECTION:", kz(projection.as_stdarray()));
 
   if(using_eyeshift) {
     glmatrix mvp = modelview * eyeshift;
@@ -568,22 +567,12 @@ EX void colorClear(color_t color) {
   glClearColor(part(color, 3) / 255.0, part(color, 2) / 255.0, part(color, 1) / 255.0, part(color, 0) / 255.0);
 }
 
-EX void full_enable(shared_ptr<GLprogram> p) {
-  auto& cur = current_glprogram;
-  flagtype oldflags = cur ? cur->shader_flags : 0;
-  if(p == cur) return;
-  if(!vid.usingGL) return;
-  cur = p;
-  GLERR("pre_switch_mode");
-  WITHSHADER({
-    if(detailed_shader) println(hlog, "\n*** ENABLING VERTEX SHADER:\n", cur->_vsh, "\n\nENABLING FRAGMENT SHADER:\n", cur->_fsh, "\n");
-    glUseProgram(cur->_program);
-    GLERR("after_enable");
-    }, {
-    });
-  reset_projection();
-  flagtype newflags = cur->shader_flags;
-  tie(oldflags, newflags) = make_pair(oldflags & ~newflags, newflags & ~oldflags);
+EX flagtype cur_shader_flags;
+
+EX void flags_become(flagtype f) {
+  flagtype oldflags = cur_shader_flags & ~f;
+  flagtype newflags = f & ~cur_shader_flags;
+  cur_shader_flags = f;
 
   if(newflags & GF_TEXTURE) {
     GLERR("xsm");
@@ -653,6 +642,23 @@ EX void full_enable(shared_ptr<GLprogram> p) {
   if(oldflags & GF_LIGHTFOG) {
     WITHSHADER({}, {glDisable(GL_FOG);})
     }
+  }
+
+
+EX void full_enable(shared_ptr<GLprogram> p) {
+  auto& cur = current_glprogram;
+  if(p == cur) return;
+  if(!vid.usingGL) return;
+  cur = p;
+  GLERR("pre_switch_mode");
+  WITHSHADER({
+    if(detailed_shader) println(hlog, "\n*** ENABLING VERTEX SHADER:\n", cur->_vsh, "\n\nENABLING FRAGMENT SHADER:\n", cur->_fsh, "\n");
+    glUseProgram(cur->_program);
+    GLERR("after_enable");
+    }, {
+    });
+  reset_projection();
+  flags_become(cur->shader_flags);
   WITHSHADER({
     glUniform1f(cur->uFogBase, 1); fogbase = 1;
     }, {})

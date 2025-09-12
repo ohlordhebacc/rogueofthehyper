@@ -380,10 +380,19 @@ EX namespace mapeditor {
   EX void scaleall(ld z, bool keep_mouse) { 
      
      if(keep_mouse) {
-       ld mrx = (.0 + mousex - current_display->xcenter) / vpconf.scale;
-       ld mry = (.0 + mousey - current_display->ycenter) / vpconf.scale;
+       ld mrx = (.0 + mousex - current_display->xcenter);
+       ld mry = (.0 + mousey - current_display->ycenter);
        
-       if(vid.xres > vid.yres) {      
+       if(euclid && pmodel == mdDisk) {
+         ld tilerad = current_display->radius / (1 + vpconf.alpha);
+         mrx /= tilerad;
+         mry /= tilerad;
+         ld s = (1-z);
+         println(hlog, tie(mrx, mry, tilerad, s));
+         View = eupush(s * mrx, s * mry) * View;
+         }
+       else if(vid.xres > vid.yres) {
+         mrx /= vpconf.scale; mry /= vpconf.scale;
          vpconf.xposition += (vpconf.scale - vpconf.scale*z) * mrx / current_display->scrsize;
          vpconf.yposition += (vpconf.scale - vpconf.scale*z) * mry / current_display->scrsize;
          }
@@ -1028,7 +1037,10 @@ EX namespace mapstream {
         auto& dat = dice::data[c];        
         dat.which = dice::get_by_id(f.read_char());
         dat.val = f.read_char();
-        dat.dir = fixspin(rspin, f.read_char(), c->type, f.vernum);
+        dat.dir = f.read_char();
+        auto fs = get_facesides(dat.which);
+        if(f.vernum < 0xAA23) dat.dir *= fs;
+        dat.dir = fixspin(rspin, dat.dir / fs, c->type, f.vernum) * fs + (dat.dir % fs);
         if(f.vernum >= 0xA902)
           dat.mirrored = f.read_char();
         }
@@ -1081,8 +1093,6 @@ EX namespace mapstream {
           setdist(c2, d+1, c);
           }
       }
-
-    relspin.clear();
 
     if(shmup::on) shmup::init();
 
@@ -1182,6 +1192,7 @@ EX namespace mapstream {
     else
       callhooks(hooks_loadmap_old, f);
 
+    relspin.clear();
     cellbyid.clear();
     restartGraph();
     bfs();
@@ -1893,42 +1904,47 @@ EX namespace mapeditor {
     return cellwalker(mouseover, d);
     }
 
-  EX void save_level() {
+  EX void save_level_ext(string& lf, reaction_t after) {
     #if ISWEB
     mapstream::saveMap("web.lev");
     offer_download("web.lev", "mime/type");
     #else
-    dialog::openFileDialog(levelfile, XLAT("level to save:"), ".lev", [] () {
-      if(mapstream::saveMap(levelfile.c_str())) {
-        addMessage(XLAT("Map saved to %1", levelfile));
+    dialog::openFileDialog(lf, XLAT("level to save:"), ".lev", [&lf, after] () {
+      if(mapstream::saveMap(lf.c_str())) {
+        addMessage(XLAT("Map saved to %1", lf));
+        after();
         return true;
         }
       else {
-        addMessage(XLAT("Failed to save map to %1", levelfile));
+        addMessage(XLAT("Failed to save map to %1", lf));
         return false;
         }
       });
     #endif
     }
 
-  EX void load_level() {
+  EX void load_level_ext(string& lf, reaction_t after) {
     #if ISWEB
     offer_choose_file([] {
       mapstream::loadMap("data.txt");
       });
     #else
-    dialog::openFileDialog(levelfile, XLAT("level to load:"), ".lev", [] () {    
-      if(mapstream::loadMap(levelfile.c_str())) {
-        addMessage(XLAT("Map loaded from %1", levelfile));
+    dialog::openFileDialog(lf, XLAT("level to load:"), ".lev", [&lf, after] () {
+      if(mapstream::loadMap(lf.c_str())) {
+        addMessage(XLAT("Map loaded from %1", lf));
+        after();
         return true;
         }
       else {
-        addMessage(XLAT("Failed to load map from %1", levelfile));
+        addMessage(XLAT("Failed to load map from %1", lf));
         return false;
         }
       });
     #endif
     }
+
+  EX void save_level() { save_level_ext(levelfile, [] {}); }
+  EX void load_level() { load_level_ext(levelfile, [] {}); }
   
   EX void showList() {
     string caption;
@@ -2194,31 +2210,9 @@ EX namespace mapeditor {
   EX bool area_in_pi = false;
 
   ld compute_area(hpcshape& sh) {
-    ld area = 0;
-    for(int i=sh.s; i<sh.e-1; i++) {
-      hyperpoint h1 = cgi.hpc[i];
-      hyperpoint h2 = cgi.hpc[i+1];
-      if(euclid)
-        area += (h2[1] + h1[1]) * (h2[0] - h1[0]) / 2;
-      else {
-        hyperpoint rh2 = gpushxto0(h1) * h2;
-        hyperpoint rh1 = gpushxto0(h2) * h1;
-        // ld a1 = atan2(h1[1], h1[0]);
-        // ld a2 = atan2(h2[1], h2[0]);
-        ld b1 = atan2(rh1[1], rh1[0]);
-        ld b2 = atan2(rh2[1], rh2[0]);
-        // C0 -> H1 -> H2 -> C0
-        // at C0: (a1-a2)
-        // at H1: (rh2 - a1 - M_PI)
-        // at H2: (a2+M_PI - rh1)
-        // total: rh2 - rh1
-        // ld z = degree;
-        ld x = b2 - b1 + M_PI;
-        cyclefix(x, 0);
-        area += x;
-        }
-      }
-    return area;
+    vector<hyperpoint> h;
+    for(int i=sh.s; i<sh.e; i++) h.push_back(cgi.hpc[i]);
+    return compute_area(h);
     }
 
 #define EDITING_TRIANGLES (GDIM == 3)
@@ -3347,6 +3341,9 @@ EX namespace mapeditor {
       dialog::addBoolItem_action_neg(XLAT("disable ghost timer"), timerghost, 'g');
       }
     else dialog::addBreak(100);
+
+    dialog::addBoolItem_action(XLAT("shading cheat"), shadingcheat, 'h');
+    dialog::addInfo(XLAT("(useful in Camelot, Caribbean, and Haunted Woods)"));
 
     dialog::addBoolItem_action(XLAT("simple pattern generation"), reptilecheat, 'p');
     dialog::addInfo(XLAT("(e.g. pure Reptile pattern)"));

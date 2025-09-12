@@ -87,7 +87,7 @@ struct dqi_poly : drawqueueitem {
   flagtype flags;
   /** \brief Texture data for textured polygons. Requires POLY_TRIANGLES flag */
   struct basic_textureinfo *tinf;
-  /** \brief used to find the correct side to draw in spherical geometries */
+  /** \brief used to find the correct side to draw in spherical geometries, and also to sort sidewalls */
   hyperpoint intester;
   /** \brief temporarily cached data */
   float cache;
@@ -253,7 +253,7 @@ EX void glflush() {
 #if CAP_SDL && !ISMOBILE
 
 SDL_Surface *aux;
-#if CAP_SDL2
+#if SDLVER >= 2
 SDL_Renderer *auxrend;
 #else
 #define auxrend aux
@@ -2310,6 +2310,7 @@ EX void quickqueue() {
 ld xintval(const shiftpoint& h) {
   if(sphere_flipped) return -h.h[2];
   if(hyperbolic) return -h.h[2];
+  if(euclid) return -hypot(h.h[0], h.h[1]);
   return -intval(h.h, C0);
   }
 
@@ -2387,9 +2388,12 @@ EX void reverse_priority(PPR p) {
   reverse(ptds.begin()+qp0[int(p)], ptds.begin()+qp[int(p)]);
   }
 
+constexpr PPR all_side_prios[] = {
+  PPR::DEEP_SIDE, PPR::SHALLOW_SIDE, PPR::WATERLEVEL_SIDE, PPR::FLOOR_SIDE, PPR::RED1_SIDE, PPR::RED2_SIDE, PPR::RED3_SIDE, PPR::WALL_SIDE
+  };
+
 EX void reverse_side_priorities() {
-  for(PPR p: {PPR::REDWALLs, PPR::REDWALLs2, PPR::REDWALLs3, PPR::WALL3s,
-    PPR::LAKEWALL, PPR::INLAKEWALL, PPR::BELOWBOTTOM, PPR::BSHALLOW, PPR::ASHALLOW})
+  for(PPR p: all_side_prios)
       reverse_priority(p);
   }
 
@@ -2609,27 +2613,25 @@ EX void drawqueue() {
 
   DEBB(DF_GRAPH, ("sort walls"));
   
-  if(GDIM == 2) 
-  for(PPR p: {PPR::REDWALLs, PPR::REDWALLs2, PPR::REDWALLs3, PPR::WALL3s,
-    PPR::LAKEWALL, PPR::INLAKEWALL, PPR::BELOWBOTTOM, PPR::ASHALLOW, PPR::BSHALLOW}) {
+  if(GDIM == 2)
+  for(PPR p: all_side_prios) {
     int pp = int(p);
     if(qp0[pp] == qp[pp]) continue;
     for(int i=qp0[pp]; i<qp[pp]; i++) {
-      auto ap = (dqi_poly&) *ptds[i];
-      ap.cache = xintval(ap.V * xpush0(.1));
+      auto& ap = (dqi_poly&) *ptds[i];
+      ap.cache = xintval(ap.V * ap.intester);
       }
     sort(&ptds[qp0[pp]], &ptds[qp[pp]], 
       [] (const unique_ptr<drawqueueitem>& p1, const unique_ptr<drawqueueitem>& p2) {
-        auto ap1 = (dqi_poly&) *p1;
-        auto ap2 = (dqi_poly&) *p2;
+        auto& ap1 = (dqi_poly&) *p1;
+        auto& ap2 = (dqi_poly&) *p2;
         return ap1.cache < ap2.cache;
         });
     }
 
   for(PPR p: {PPR::TRANSPARENT_WALL}) {
     int pp = int(p);
-    if(qp0[pp] == qp[pp]) continue;
-    sort(&ptds[qp0[int(p)]], &ptds[qp[int(p)]], 
+    sort(ptds.data() + qp0[pp], ptds.data() + qp[pp],
       [] (const unique_ptr<drawqueueitem>& p1, const unique_ptr<drawqueueitem>& p2) {
         return p1->subprio > p2->subprio;
         });
@@ -2648,7 +2650,7 @@ EX void drawqueue() {
       h = unshift(d->V) * h;
       return h[2];
       };
-    sort(&ptds[qp0[int(p)]], &ptds[qp[int(p)]],
+    sort(ptds.data() + qp0[pp], ptds.data() + qp[pp],
       [&] (const unique_ptr<drawqueueitem>& p1, const unique_ptr<drawqueueitem>& p2) {
         return get_z(p1) > get_z(p2);
         });
@@ -2658,15 +2660,15 @@ EX void drawqueue() {
   if(current_display->separate_eyes() && !vid.usingGL) {
 
     if(aux && (aux->w != s->w || aux->h != s->h)) {
-      SDL_FreeSurface(aux);
-      #if CAP_SDL2
+      SDL_DestroySurface(aux);
+      #if SDLVER >= 2
       SDL_DestroyRenderer(auxrend);
       #endif
       }
   
     if(!aux) {
       aux = SDL_CreateRGBSurface(SDL_SWSURFACE,s->w,s->h,32,0,0,0,0);
-      #if CAP_SDL2
+      #if SDLVER >= 2
       auxrend = SDL_CreateSoftwareRenderer(aux);
       #endif
       }
@@ -2729,8 +2731,8 @@ EX void drawqueue() {
   }
 
 #if HDR
-template<class T, class... U> T& queuea(PPR prio, U... u) {
-  ptds.push_back(unique_ptr<T>(new T (u...)));
+template<class T, class... U> T& queuea(PPR prio, U&&... u) {
+  ptds.push_back(unique_ptr<T>(new T (std::forward<U>(u)...)));
   ptds.back()->prio = prio;  
   return (T&) *ptds.back();
   }

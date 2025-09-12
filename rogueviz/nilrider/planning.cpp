@@ -1,3 +1,6 @@
+// Nil Rider: planning mode
+// Copyright (C) 2022-2025 Zeno Rogue, see '../../hyper.cpp' for details
+
 namespace nilrider {
 
 hyperpoint get_spline(ld t);
@@ -139,7 +142,7 @@ void level::draw_planning_screen() {
   auto& T = plan_transform;
   
   auto scr_to_map = [&] (hyperpoint h) {
-    transmatrix mousef = inverse_shift(T, atscreenpos(h[0], h[1]));
+    transmatrix mousef = inverse_shift_any(T, atscreenpos(h[0], h[1]));
     h = mousef * C0;
     h /= h[2];
     return h;
@@ -221,9 +224,9 @@ void level::draw_planning_screen() {
       current_surface = hi.on_surface;
       curvepoint(hpxy(h[0], h[1]));
       }
-    i++; if(i < isize(history)) i = min(i + plan_precision - 1, isize(history)-1);
     ld dist = sqhypot_d(2, h - mousept);
     if(dist < closest_dist) closest_dist = dist, current = history[i];
+    i++; if(i < isize(history)) i = min(i + plan_precision - 1, isize(history)-1);
     }
   queuecurve(T, surface_color(), 0, PPR::LIZEYE);
   vid.linewidth /= 3;
@@ -244,12 +247,12 @@ int move_id = -1, move_dir = 0;
 bool level::handle_planning(int sym, int uni) {
   if(sym == PSEUDOKEY_WHEELUP || sym == SDLK_PAGEUP) {
     dynamicval<eGeometry> g(geometry, gEuclid);
-    plan_transform = atscreenpos(mousex, mousey, 1.2) * inverse_shift(atscreenpos(mousex, mousey, 1), plan_transform);
+    plan_transform = atscreenpos(mousex, mousey, 1.2) * inverse_shift_any(atscreenpos(mousex, mousey, 1), plan_transform);
     return true;
     }
   if(sym == PSEUDOKEY_WHEELDOWN || sym == SDLK_PAGEDOWN) {
     dynamicval<eGeometry> g(geometry, gEuclid);
-    plan_transform = atscreenpos(mousex, mousey, 1) * inverse_shift(atscreenpos(mousex, mousey, 1.2), plan_transform);
+    plan_transform = atscreenpos(mousex, mousey, 1) * inverse_shift_any(atscreenpos(mousex, mousey, 1.2), plan_transform);
     return true;
     }
   for(auto& b: buttons) if(uni == b.first) {

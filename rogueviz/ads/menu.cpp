@@ -1,12 +1,52 @@
+// Relative Hell: menus
+// Copyright (C) 2022-2025 Zeno Rogue, see '../../hyper.cpp' for details
+
 namespace hr {
 
 namespace ads_game {
+
+void restart() {
+  if(main_rock) ds_restart();
+  else ads_restart();
+  }
 
 void adjust_for_scale() {
   ld ads_scale = get_scale();
   if(ads_scale < 0.3) max_gen_per_frame = 1, draw_per_frame = 30;
   else if(ads_scale < 0.8) max_gen_per_frame = 2, draw_per_frame = 100;
   else max_gen_per_frame = 3, draw_per_frame = 1000;
+  }
+
+vector<void*> get_all_params() {
+  vector<void*> vec = {&DS_(simspeed), &DS_(accel), &DS_(how_much_invincibility), &vid.creature_scale, &DS_(missile_rapidity)};
+  if(!main_rock) {
+    vec.push_back(&rock_max_rapidity);
+    vec.push_back(&rock_density);
+    }
+  auto all = [&] (player_data& d) {
+    vec.push_back(&d.hitpoints);
+    vec.push_back(&d.ammo);
+    vec.push_back(&d.fuel);
+    vec.push_back(&d.oxygen);
+    };
+  all(DS_(max_pdata));
+  all(DS_(tank_pdata));
+  return vec;
+  }
+
+bool all_params_default() {
+  for(auto v: get_all_params()) {
+    for(auto& fs: params)
+      if(fs.second->affects(v) && fs.second->dosave()) return false;
+    }
+  return true;
+  }
+
+void all_params_reset() {
+  for(auto v: get_all_params())
+    for(auto& fs: params)
+      if(fs.second->affects(v))
+        fs.second->reset();
   }
 
 void edit_difficulty() {
@@ -33,7 +73,7 @@ void edit_difficulty() {
   dialog::addBreak(100);
   edit_rsrc();
   
-  if(!main_rock) {
+  if(true) {
     dialog::addBreak(100);
     dialog::addItem(XLAT("scale everything :2"), '!');
     dialog::add_action([] {
@@ -48,6 +88,12 @@ void edit_difficulty() {
       restart();
       });
     }
+
+  bool pa = all_params_default();
+  dialog::addSelItem(XLAT("all default"),
+    (pa && !no_param_change) ? XLAT("PARTIAL") : ONOFF(pa), 'd');
+  if(pa)
+    dialog::add_action([] { all_params_reset(); restart(); });
 
   dialog::addBack();
   dialog::display();
@@ -162,6 +208,10 @@ void game_menu() {
   add_edit(pause_speed);
   add_edit(view_proper_times);
   add_edit(DS_(time_unit));
+  if(view_proper_times) {
+    add_edit(time_scale); add_edit(time_shift);
+    }
+  else dialog::addBreak(200);
 
   dialog::addItem(XLAT("set view mode"), 'v');
   dialog::add_action_push(edit_view_mode);
@@ -173,8 +223,7 @@ void game_menu() {
   dialog::add_action([] {
     game_over_with_message("restarted");
     save_to_hiscores();
-    if(main_rock) ds_restart();
-    else restart();
+    restart();
     popScreen(); });
 
   dialog::addItem(XLAT("highscores"), 'h');
@@ -224,6 +273,22 @@ void game_menu() {
   dialog::display();
   }
 
+void pick_the_game();
+
+void may_subloop() {
+  #if RELHELL
+  mainloop();
+  if(tour::on) tour::stop_tour();
+  quitmainloop = false;
+  popScreenAll();
+  stop_game();
+  set_geometry(gEuclid);
+  pmodel = mdDisk;
+  start_game();
+  pushScreen(pick_the_game);
+  #endif
+  }
+
 void pick_the_game() {
   cmode = sm::NOSCR;
   clearMessages();
@@ -233,19 +298,29 @@ void pick_the_game() {
   dialog::addInfo(XLAT("abandon all hope of going faster than light"));
   dialog::addBreak(200);
 
-  dialog::addBigItem("anti-de Sitter space", '1');
-  dialog::add_action([] { popScreen(); run_ads_game_std(); add_ads_cleanup(); clearMessages(); });
+  dialog::addBigItem("anti-de Sitter space", 'a');
+  dialog::add_action([] { popScreen(); run_ads_game_std(); add_ads_cleanup(); clearMessages(); may_subloop(); });
   dialog::addInfo(XLAT("shoot asteroids, mine resources, collect gold"));
 
   dialog::addBreak(100);
 
-  dialog::addBigItem("de Sitter space", '2');
-  dialog::add_action([] { popScreen(); run_ds_game_std(); add_ds_cleanup(); clearMessages(); });
+  dialog::addBigItem("de Sitter space", 'd');
+  dialog::add_action([] { popScreen(); run_ds_game_std(); add_ds_cleanup(); clearMessages(); may_subloop(); });
   dialog::addInfo(XLAT("avoid energy balls, but do not let the main star run away!"));
 
   dialog::addBreak(100);
 
-  dialog::addItem("not now", '3');
+  dialog::addBigItem("guided tour", 't');
+  dialog::add_action([] { start_relhell_tour(); may_subloop(); });
+  dialog::addInfo(XLAT("but what exactly are these spaces?"));
+
+  dialog::addBreak(100);
+
+  #if RELHELL
+  dialog::addBigItem("quit the game", 'q');
+  #else
+  dialog::addItem("not now", 'q');
+  #endif
   dialog::add_action([] { quitmainloop = true; });
 
   dialog::display();

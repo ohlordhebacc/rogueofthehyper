@@ -1,3 +1,6 @@
+// Relative Hell: help
+// Copyright (C) 2022-2025 Zeno Rogue, see '../../hyper.cpp' for details
+
 namespace hr {
 namespace ads_game {
 
@@ -107,7 +110,7 @@ int generate_mouseovers() {
   if(!paused) {
     int v = -1;
     for(int i=0; i<multi::SCANCODES; i++) if(multi::scfg_default.keyaction[i] == 16+pcPause) v = i;
-    if(v >= 0) mouseovers = "press " + dialog::keyname(v) + " to pause";
+    if(v >= 0) mouseovers = "press " + SDL12(dialog::keyname(v), string(SDL_GetScancodeName(SDL_Scancode(v)))) + " to pause";
     return 1;
     }
 
@@ -125,7 +128,7 @@ int generate_mouseovers() {
     auto& ci = ci_at[w.first];
     mouseovers = land_name(w.first);
     titlecolor = help_color(w.first);
-    help = get_land_help(c);
+    help = get_land_help(w.first);
 
     switch(ci.type) {
       case wtDestructible: case wtSolid:
@@ -151,6 +154,7 @@ string get_main_help() {
       "Good luck!\n\nSee the Guided Tour for more explanation about how de Sitter spacetime used in this game works.";
   else return
       "Explore the world, shoot asteroids and enemies, collect treasures and resources. The more treasures you collect, the harder the game becomes. Good luck!\n\n"
+      "Right-click objects while paused for more information about them.\n\n"
       "See the Guided Tour for more explanation about how anti-de Sitter spacetime used in this game works.";
   }
 

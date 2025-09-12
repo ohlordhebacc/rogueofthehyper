@@ -1,4 +1,5 @@
-/* underlying/spacetime views, and also replaying */
+// Relative Hell: underlying/spacetime views, and also replaying
+// Copyright (C) 2022-2025 Zeno Rogue, see '../../hyper.cpp' for details
 
 namespace hr {
 
@@ -85,7 +86,7 @@ void switch_spacetime() {
     }
 
   View = Id;
-  cwt = centerover = currentmap->gamestart();
+  if(game_active) cwt = centerover = currentmap->gamestart();
   }
 
 bool ads_draw_cell(cell *c, const shiftmatrix& V) {
@@ -103,6 +104,10 @@ bool ads_draw_cell(cell *c, const shiftmatrix& V) {
     }
   return false;
   }
+
+bool missile_replay = false;
+
+purehookset hook_alter_replay;
 
 void replay_animation() {
   nomap = main_rock ? (!hyperbolic || among(pmodel, mdRelPerspective, mdRelOrthogonal)) : !sl2;
@@ -129,10 +134,23 @@ void replay_animation() {
           vctrV = new_vctrV = ss.vctrV;
           current.T = cspin(3, 2, view_pt - ss.start) * current.T;
           if(auto_rotate)
-            current.T = cspin(1, 0, view_pt - ss.start) * current.T;
+            current.T = cspin(1, 0, view_pt) * current.T;
           });
         break;
         }
+    if(missile_replay == true) {
+      for(auto& [c, ci]: ci_at) for(auto& r: ci.rocks) {
+        if(r->type != oMissile) continue;
+        if(view_pt < r->shot_at + r->life_start) continue;
+        if(view_pt > r->shot_at + r->life_end) continue;
+        PIA({
+          // vctr = new_vctr = c;
+          current = ads_matrix(cspin(3, 2, view_pt - r->shot_at)) * ads_inverse(r->at);
+          // vctrV = new_vctrV = current.T;
+          });
+        }
+      }
+    callhooks(hook_alter_replay);
     }
   
   if(main_rock && hyperbolic) {
@@ -189,6 +207,10 @@ auto view_hooks =
 + arg::add3("-ads-replay", [] { arg::shift(); int i = arg::argi(); if(i != in_replay) switch_replay(); })
 + arg::add3("-ads-duality", [] { arg::shift(); use_duality = arg::argi(); })
 + arg::add3("-ads-cone", [] { arg::shift(); which_cross = arg::argi(); })
-+ arg::add3("-ads-spacetime", [] { arg::shift(); switch_spacetime_to(arg::argi()); });
++ arg::add3("-ads-ship-history", [] { arg::shift_arg_formula(ship_history_period); })
++ arg::add3("-ads-spacetime", [] { arg::shift(); switch_spacetime_to(arg::argi());
+  pmodel = mdRelPerspective;
+  use_duality = 0;
+  });
 
 }}

@@ -1186,7 +1186,7 @@ LAND( 0xFFFF00, "Land of Power", laPower, ZERO, itPower, RESERVED,
 
 LAND( 0xD0D0D0, "Camelot", laCamelot, ZERO | LF_CYCLIC, itHolyGrail, RESERVED, camelothelp )
   NATIVE((m == moKnight || m == moHedge || m == moFlailer || m == moLancer) ? 1 : 0)
-  REQ(ITEMS(itEmerald, U5) ACCONLY3(laCrossroads, laCrossroads3, laCrossroads4))
+  REQ(ITEMS(itEmerald, U5) ACCONLY4(laCrossroads, laCrossroads3, laCrossroads4, laCrossroads6))
 
 LAND( 0xD000D0, "Temple of Cthulhu", laTemple, ZERO | LF_CYCLIC, itGrimoire, RESERVED, templehelp )
   NATIVE((m == moTentacle || m == moCultist || m == moPyroCultist || m == moCultistLeader) ? 1 : 0)
@@ -1750,6 +1750,13 @@ MONSTER('d', 0x901020, "Angry Die", moAngryDie, ZERO, RESERVED, moAnimatedDie,
   "You have made a die unhappy. Taste the revenge! This one won't forgive you, no matter what you do."
   )
 
+LAND( 0x7030A0, "Crossroads VI", laCrossroads6, ZERO, itHyperstone, RESERVED, "A cursed Crossroads layout.")
+  NATIVE(0)
+  REQ(IFINGAME(laCursed, ITEMS(itCursed, 5), GOLD(R400)))
+
+LAND( 0xC0B090, "Master Crossroads", laMasterCrossroads, ZERO, itHyperstone, RESERVED, "A crossroads that connects only to other crossroads.")
+  NATIVE(0) REQ(GOLD(R500))
+
 ITEM('}', 0xFFFF80, "Crossbow", itCrossbow, IC_NAI, ZERO, RESERVED, osNone,
   "Your crossbow. Press 'f' or click it in the inventory to toggle firing mode. In firing mode, select a tile to see the trajectory, then "
   "click again to fire. After firing, the crossbow takes some time to reload."
@@ -1796,6 +1803,8 @@ MONSTER( '*', 0,        "vertex", moRogueviz, ZERO | CF_TECHNICAL, RESERVED, moN
 #undef ACCONLY
 #undef ACCONLY2
 #undef ACCONLY3
+#undef ACCONLY4
+#undef ACCONLY5
 #undef ACCONLYF
 #undef IFINGAME
 #undef INMODE

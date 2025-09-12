@@ -833,6 +833,8 @@ EX void show_portals() {
     }
   else dialog::addBreak(100);
 
+  dialog::addBoolItem_action(XLAT("build on walls"), mapeditor::building_mode, 'B');
+
   walking::add_options();
 
   dialog::addHelp();
@@ -1208,7 +1210,7 @@ auto a = addHook(hooks_configfile, 100, [] {
     })
 + addHook(vrhr::vr_quickmenu_extensions, 105, [] {
     if(!intra::in) return;
-    dialog::addBoolItem("walking mode", 'w', on);
+    dialog::addBoolItem("walking mode", on, 'w');
     dialog::add_action([] {
       switch_walking();
       println(hlog, "walking set to ", ONOFF(on));

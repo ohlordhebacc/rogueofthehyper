@@ -1636,19 +1636,15 @@ EX void show_vr_quickmenu() {
 bool vr_keys(int sym, int uni) {
   #if !ISMOBILE
   if(!(cmode & sm::NORMAL)) return false;
-  const Uint8 *keystate = SDL12_GetKeyState(NULL);
-  #if CAP_SDL2
-  if(keystate[SDL_SCANCODE_LALT] || keystate[SDL_SCANCODE_RALT])
-  #else
-  if(keystate[SDLK_LALT] || keystate[SDLK_RALT])
-  #endif
+  const sdl_keystate_type *keystate = SDL12_GetKeyState(NULL);
+  if(keystate[SDL12(SDLK_LALT, SDL_SCANCODE_LALT)] || keystate[SDL12(SDLK_RALT, SDL_SCANCODE_RALT)])
     {
     dialog::key_actions.clear();
     callhooks(vr_quickmenu_extensions);
     if(dialog::key_actions.count(uni)) { dialog::key_actions[uni](); return true; }
     }
-  return false;
   #endif
+  return false;
   }
 
 auto hookvr = addHook(vr_quickmenu_extensions, 100, [] {

@@ -188,17 +188,17 @@ string listkeys(config& scfg, int id) {
   string lk = "";
   for(int i=0; i<SCANCODES; i++)
     if(scfg.keyaction[i] == id)
-      #if CAP_SDL2
+      #if SDLVER >= 2
       lk = lk + " " + SDL_GetScancodeName(SDL_Scancode(i));
       #else
       lk = lk + " " + SDL_GetKeyName(SDLKey(i));
       #endif
 #if CAP_SDLJOY
-  for(int i=0; i<numsticks; i++) for(int k=0; k<SDL_JoystickNumButtons(sticks[i]) && k<MAXBUTTON; k++)
+  for(int i=0; i<numsticks; i++) for(int k=0; k<SDL_GetNumJoystickButtons(sticks[i]) && k<MAXBUTTON; k++)
     if(scfg.joyaction[i][k] == id) {
       lk = lk + " " + cts('A'+i)+"-B"+its(k);
       }
-  for(int i=0; i<numsticks; i++) for(int k=0; k<SDL_JoystickNumHats(sticks[i]) && k<MAXHAT; k++)
+  for(int i=0; i<numsticks; i++) for(int k=0; k<SDL_GetNumJoystickHats(sticks[i]) && k<MAXHAT; k++)
     for(int d=0; d<4; d++)
       if(scfg.hataction[i][k][d] == id) {
         lk = lk + " " + cts('A'+i)+"-"+"URDL"[d];
@@ -231,8 +231,6 @@ EX void resetScores() {
   }
  
 bool configdead;
-
-void handleConfig(int sym, int uni);
 
 EX string player_count_name(int p) {
   return 
@@ -295,7 +293,7 @@ struct key_configurer {
 
 #if CAP_SDLJOY    
     joyhandler = [this] (SDL_Event& ev) { 
-      if(ev.type == SDL_JOYBUTTONDOWN && setwhat) {
+      if(ev.type == SDL_EVENT_JOYSTICK_BUTTON_DOWN && setwhat) {
         int joyid = ev.jbutton.which;
         int button = ev.jbutton.button;
         if(joyid < 8 && button < 32)
@@ -304,7 +302,7 @@ struct key_configurer {
         return true;
         }
   
-      else if(ev.type == SDL_JOYHATMOTION && setwhat) {
+      else if(ev.type == SDL_EVENT_JOYSTICK_HAT_MOTION && setwhat) {
         int joyid = ev.jhat.which;
         int hat = ev.jhat.hat;
         int dir = 4;
@@ -359,8 +357,8 @@ struct joy_configurer {
     getcstat = ' ';
     numaxeconfigs = 0;
     for(int j=0; j<numsticks; j++) {
-      for(int ax=0; ax<SDL_JoystickNumAxes(sticks[j]) && ax < MAXAXE; ax++) if(numaxeconfigs<24) {
-        int y = SDL_JoystickGetAxis(sticks[j], ax);
+      for(int ax=0; ax<SDL_GetNumJoystickAxes(sticks[j]) && ax < MAXAXE; ax++) if(numaxeconfigs<24) {
+        int y = SDL_GetJoystickAxis(sticks[j], ax);
         string buf = " ";
         if(configdead)
           buf += its(y);
@@ -419,37 +417,52 @@ struct shmup_configurer {
     cmode = sm::SHMUPCONFIG | sm::SIDE | sm::DARKEN;
     gamescreen();
     dialog::init(XLAT("keyboard & joysticks"));
+    auto& cmdlist = shmup::on ? (WDIM == 3 ? playercmds_shmup3 : playercmds_shmup) : playercmds_turn;
     
     bool haveconfig = shmup::on || players > 1 || multi::alwaysuse;
   
-    if(haveconfig)
+    if(haveconfig) {
       dialog::addItem(XLAT("configure player 1"), '1');
+      dialog::add_action_push(get_key_configurer(1, cmdlist));
+      }
     else
       dialog::addBreak(100);
-    if(players > 1)
+    if(players > 1) {
       dialog::addItem(XLAT("configure player 2"), '2');
-    else if(players == 1 && !shmup::on)
+      dialog::add_action_push(get_key_configurer(2, cmdlist));
+      }
+    else if(players == 1 && !shmup::on) {
       dialog::addSelItem(XLAT("input"), multi::alwaysuse ? XLAT("config") : XLAT("default"), 'a');
+      dialog::add_action([] { multi::alwaysuse = !multi::alwaysuse; });
+      }
     else
       dialog::addBreak(100);
-    if(players > 2)
+    if(players > 2) {
       dialog::addItem(XLAT("configure player 3"), '3');
+      dialog::add_action_push(get_key_configurer(3, cmdlist));
+      }
   #if CAP_SDLJOY
-    else if(!haveconfig)
+    else if(!haveconfig) {
       dialog::addItem(XLAT("old style joystick configuration"), 'b');
+      dialog::add_action_push(showJoyConfig);
+      }
   #endif
     else dialog::addBreak(100);
-    if(players > 3)
+    if(players > 3) {
       dialog::addItem(XLAT("configure player 4"), '4');
+      dialog::add_action_push(get_key_configurer(4, cmdlist));
+      }
     else if(!shmup::on && !multi::alwaysuse) {
-      dialog::addBoolItem(XLAT("smooth scrolling"), smooth_scrolling, 'c');
+      dialog::addBoolItem_action(XLAT("smooth scrolling"), smooth_scrolling, 'c');
       }
     else if(alwaysuse)
       dialog::addInfo(XLAT("note: configured input is designed for"));
     else dialog::addBreak(100);
       
-    if(players > 4)
+    if(players > 4) {
       dialog::addItem(XLAT("configure player 5"), '5');
+      dialog::add_action_push(get_key_configurer(5, cmdlist));
+      }
     else if(!shmup::on && !multi::alwaysuse) {
       if(GDIM == 2) {
         dialog::addSelItem(XLAT("help for keyboard users"), XLAT(axmodes[vid.axes]), 'h');
@@ -461,24 +474,32 @@ struct shmup_configurer {
       dialog::addInfo(XLAT("multiplayer and shmup mode; some features"));
     else dialog::addBreak(100);
   
-    if(players > 5)
+    if(players > 5) {
       dialog::addItem(XLAT("configure player 6"), '6');
+      dialog::add_action_push(get_key_configurer(6, cmdlist));
+      }
     else if(alwaysuse)
       dialog::addInfo(XLAT("work worse if you use it."));
     else dialog::addBreak(100);
   
-    if(players > 6)
+    if(players > 6) {
       dialog::addItem(XLAT("configure player 7"), '7');
+      dialog::add_action_push(get_key_configurer(7, cmdlist));
+      }
     else dialog::addBreak(100);
       
-    if(shmup::on || multi::alwaysuse || players > 1)
+    if(shmup::on || multi::alwaysuse || players > 1) {
       dialog::addItem(XLAT("configure panning and general keys"), 'p');
+      dialog::add_action_push(get_key_configurer(3, GDIM == 3 ? pancmds3 : pancmds));
+      }
     else dialog::addBreak(100);
   
   #if CAP_SDLJOY
     if(numsticks > 0) {
-      if(shmup::on || multi::alwaysuse || players > 1) 
+      if(shmup::on || multi::alwaysuse || players > 1)  {
         dialog::addItem(XLAT("configure joystick axes"), 'x');
+        dialog::add_action_push(joy_configurer(players, scfg_default));
+        }
       else dialog::addBreak(100);
       }
   #endif
@@ -491,35 +512,7 @@ struct shmup_configurer {
   
     dialog::addBack();
     dialog::display();
-    
-    keyhandler = [this] (int sym, int uni) { return handleConfig(sym, uni); };
   #endif
-    }
-
-  void handleConfig(int sym, int uni) {
-    auto& cmdlist = shmup::on ? (WDIM == 3 ? playercmds_shmup3 : playercmds_shmup) : playercmds_turn;
-    dialog::handleNavigation(sym, uni);
-    
-    if(0) ;
-    #if CAP_SDL
-    else if(uni == '1') pushScreen(get_key_configurer(1, cmdlist));
-    else if(uni == '2') pushScreen(get_key_configurer(2, cmdlist));
-    else if(uni == 'p') pushScreen(get_key_configurer(3, GDIM == 3 ? pancmds3 : pancmds));
-    else if(uni == '3') pushScreen(get_key_configurer(4, cmdlist));
-    else if(uni == '4') pushScreen(get_key_configurer(5, cmdlist));
-    else if(uni == '5') pushScreen(get_key_configurer(6, cmdlist));
-    else if(uni == '6') pushScreen(get_key_configurer(7, cmdlist));
-    else if(uni == '7') pushScreen(get_key_configurer(8, cmdlist));
-  #if CAP_SDLJOY
-    else if(uni == 'j') pushScreen(joy_configurer(players, scfg_default));
-  #endif
-    else if(uni == 'a') multi::alwaysuse = !multi::alwaysuse;
-  #if CAP_SDLJOY
-    else if(uni == 'b') pushScreen(showJoyConfig);
-  #endif
-    else if(uni == 'c') smooth_scrolling = !smooth_scrolling;
-    #endif
-    else if(doexiton(sym, uni)) popScreen();
     }
   };
 
@@ -621,7 +614,7 @@ void pressaction(int id) {
   }
 
 EX int key_to_scan(int sym) {
-  #if CAP_SDL2
+  #if SDLVER >= 2
   return SDL_GetScancodeFromKey(sym);
   #else
   return sym;
@@ -676,7 +669,7 @@ EX void initConfig() {
   
   int* t = scfg.keyaction;
   
-  #if CAP_SDL2
+  #if SDLVER >= 2
 
   t[SDL_SCANCODE_W] = 16 + 4;
   t[SDL_SCANCODE_D] = 16 + 5;
@@ -837,7 +830,7 @@ EX void initConfig() {
 EX void get_actions(config& scfg) {
 
   #if !ISMOBILE
-  const Uint8 *keystate = SDL12_GetKeyState(NULL);
+  const sdl_keystate_type *keystate = SDL12_GetKeyState(NULL);
 
   for(auto& a: action_states_flat) a.last = a.held, a.held = 0;
 
@@ -849,20 +842,20 @@ EX void get_actions(config& scfg) {
 #if CAP_SDLJOY  
   for(int j=0; j<numsticks; j++) {
 
-    for(int b=0; b<SDL_JoystickNumButtons(sticks[j]) && b<MAXBUTTON; b++)
-      if(SDL_JoystickGetButton(sticks[j], b))
+    for(int b=0; b<SDL_GetNumJoystickButtons(sticks[j]) && b<MAXBUTTON; b++)
+      if(SDL_GetJoystickButton(sticks[j], b))
         pressaction(scfg.joyaction[j][b]);
 
-    for(int b=0; b<SDL_JoystickNumHats(sticks[j]) && b<MAXHAT; b++) {
-      int stat = SDL_JoystickGetHat(sticks[j], b);
+    for(int b=0; b<SDL_GetNumJoystickHats(sticks[j]) && b<MAXHAT; b++) {
+      int stat = SDL_GetJoystickHat(sticks[j], b);
       if(stat & SDL_HAT_UP) pressaction(scfg.hataction[j][b][0]);
       if(stat & SDL_HAT_RIGHT) pressaction(scfg.hataction[j][b][1]);
       if(stat & SDL_HAT_DOWN) pressaction(scfg.hataction[j][b][2]);
       if(stat & SDL_HAT_LEFT) pressaction(scfg.hataction[j][b][3]);
       }
     
-    for(int b=0; b<SDL_JoystickNumAxes(sticks[j]) && b<MAXAXE; b++) {
-      int value = SDL_JoystickGetAxis(sticks[j], b);
+    for(int b=0; b<SDL_GetNumJoystickAxes(sticks[j]) && b<MAXAXE; b++) {
+      int value = SDL_GetJoystickAxis(sticks[j], b);
       int dz = scfg.deadzoneval[j][b];
       if(value > dz) value -= dz; else if(value < -dz) value += dz;
       else value = 0;
@@ -877,13 +870,16 @@ EX void get_actions(config& scfg) {
 static constexpr int pantable = 3;
 #endif
 
+EX purehookset hooks_handleInput;
+
 EX void handleInput(int delta, config &scfg) {
 #if CAP_SDL
   double d = delta / 500.;
 
   get_actions(scfg);
+  callhooks(hooks_handleInput);
 
-  const Uint8 *keystate = SDL12_GetKeyState(NULL);
+  const sdl_keystate_type *keystate = SDL12_GetKeyState(NULL);
 
   if(keystate[SDL12(SDLK_LCTRL, SDL_SCANCODE_LCTRL)] || keystate[SDL12(SDLK_RCTRL, SDL_SCANCODE_RCTRL)]) d /= 5;
   

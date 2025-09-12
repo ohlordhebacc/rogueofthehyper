@@ -1,3 +1,6 @@
+// Relative Hell: map for the anti-de Sitter game
+// Copyright (C) 2022-2025 Zeno Rogue, see '../../hyper.cpp' for details
+
 namespace hr {
 
 namespace ads_game {
@@ -30,7 +33,7 @@ void compute_life(cell *c, transmatrix S1, const worldline_visitor& wv) {
     auto last_w = cur_w;
     auto next_w = cur_w;
     transmatrix next_S1;
-    ld next_t;
+    ld next_t = 0; /* set to 0 to silence warning */
     ld last_time = t;
     cell *next_c = nullptr;
     binsearch(t, t+90._deg, [&] (ld t1) {
@@ -65,8 +68,17 @@ map<int, int> genstats;
 
 int gen_budget;
 
+void setdist_rec(cell *c, int val) {
+  forCellCM(c1, c) if(c1->mpdist <= val) { setdist(c, val, c1); return; }
+  forCellCM(c1, c) if(celldist(c1) < celldist(c)) {
+    setdist_rec(c1, val);
+    setdist(c, val, c1);
+    return;
+    }
+  }
+
 void gen_terrain(cell *c, cellinfo& ci, int level = 0) {
-  if(level == 0) setdist(c, 7, nullptr);
+  if(level == 0) setdist_rec(c, 7);
   if(level >= ci.mpd_terrain) return;
   if(!hyperbolic) { println(hlog, "wrong geometry detected in gen_terrain!");  exit(1); }
 
@@ -108,7 +120,7 @@ void add_rock(cell *c, cellinfo& ci, const ads_matrix& T) {
 
   bool fail = false;
   compute_life(hybrid::get_at(c, 0), unshift(T), [&] (cell *c, ld t) {
-    hybrid::in_underlying_geometry([c] { setdist(c, 7, nullptr); });
+    hybrid::in_underlying_geometry([c] { setdist_rec(c, 7); });
     if(c->land == laBarrier) fail = true;
     return false;
     });
@@ -178,7 +190,7 @@ void add_rsrc(cell *c, cellinfo& ci, const ads_matrix& T) {
   gen_resource(c, T, rt, gen_expire(c));
   }
 
-int turrets;
+int turret_limit = -1, turrets;
 
 struct placement {
   ld alpha;
@@ -232,6 +244,8 @@ void gen_rocks(cell *c, cellinfo& ci, int radius) {
       }
 
     q = rpoisson(rock_density * turret_frequency(c));
+    if(turret_limit >= 0) { if(q > turret_limit) q = turret_limit; turret_limit -= q; }
+
     // if(celldist(c) == 2) q += rpoisson(0.1);
     for(int i=0; i<q; i++) {
       auto p = get_placement(c, cgi.rhexf, rock_max_rapidity / 10);

@@ -376,7 +376,7 @@ void raygen::compute_which_and_dist(int flat1, int flat2) {
     else if(in_h2xe() && hybrid::underlying == gBinaryTiling)
       fmain += "for(int i=0; i<=4; i++) if(i == 0 || i == 4) {";
     else
-      fmain += "for(int i="+its(flat1)+"; i<"+(gproduct ? "sides-2" : ((WDIM == 2 || is_subcube_based(variation) || intra::in) && !bt::in()) ? "sides" : its(flat2))+"; i++) {\n";
+      fmain += "for(int i="+its(flat1)+"; i<"+(gproduct ? "sides-2" : ((WDIM == 2 || is_subcube_based(variation) || intra::in || geometry == gOctTet3) && !bt::in()) ? "sides" : its(flat2))+"; i++) {\n";
 
     fmain += "    mediump mat4 m = " + getM("walloffset+i") + ";\n";
 
@@ -2334,6 +2334,7 @@ struct raycast_map {
 
   int saved_frameid;
   int saved_map_version;
+  int saved_darken;
   
   vector<cell*> lst;
   map<cell*, int> ids;
@@ -2500,7 +2501,7 @@ struct raycast_map {
         dd.setcolors();
         shiftmatrix Vf;
         dd.set_land_floor(Vf);
-        color_t wcol = darkena(dd.wcol, 0, 0xFF);
+        color_t wcol = darkena(dd.wcol, darken, 0xFF);
         int dv = get_darkval(c1, c->c.spin(i));
         float p = 1 - dv / 16.;
         wallcolor[u] = glhr::acolor(wcol);
@@ -2630,6 +2631,7 @@ struct raycast_map {
   void create_all(cell *cs) {
     saved_frameid = frameid;
     saved_map_version = mapeditor::map_version;
+    saved_darken = darken;
     generate_initial_ms(cs);
     generate_cell_listing(cs);
     apply_shape();
@@ -2639,6 +2641,7 @@ struct raycast_map {
   bool need_to_create(cell *cs) {
     if(!fixed_map && frameid != saved_frameid) return true;
     if(saved_map_version != mapeditor::map_version) return true;
+    if(darken != saved_darken) return true;
     return !ids.count(cs);
     }
   };
@@ -2842,7 +2845,7 @@ EX void cast() {
     // println(hlog, "wallrange = ", tie(minval, maxval), " wallx = ", isize(wallx), " wallstart = ", isize(cgi.wallstart));
     for(int i=0; i<isize(wallstart); i++) {
       w_map[i+2*wlength][0] = (wallstart[i]+.5) / wlength;
-      w_map[i+2*wlength][1] = wallangle[i];
+      w_map[i+2*wlength][1] = i < isize(wallangle) ? wallangle[i] : 0;
       }
     bind_array(w_map, o->tWall, txWall, 8, wlength);
     glUniform1f(o->uInvLengthWall, 1. / wlength);

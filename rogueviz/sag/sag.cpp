@@ -198,8 +198,8 @@ void auto_orth(bool set_colors) {
     applymodel(M*p, ret);
     auto& col = vdata[i].cp.color1;
     for(int j=0; j<3; j++) {
-      println(hlog, "coloring ", tie(i,j), ret[j], " -> ", ilerp(pmin[j], pmax[j], ret[j]), " -> ", lerp(0, 255, ilerp(pmin[j], pmax[j], ret[j])));
-      part(col, j+1) = lerp(0, 255, ilerp(pmin[j], pmax[j], ret[j]));
+      println(hlog, "coloring ", tie(i,j), ret[j], " -> ", ilerp(pmin[j], pmax[j], ret[j]), " -> ", hr::lerp(0, 255, ilerp(pmin[j], pmax[j], ret[j])));
+      part(col, j+1) = hr::lerp(0, 255, ilerp(pmin[j], pmax[j], ret[j]));
       }
     vdata[i].cp.color2 = col;
     }
@@ -338,7 +338,7 @@ void init() {
 
   rogueviz::init(RV_GRAPH | RV_WHICHWEIGHT | RV_AUTO_MAXWEIGHT | RV_HAVE_WEIGHT);
 
-  rv_hook(rogueviz::hooks_close, 100, clear);
+  rv_hook(hooks_clearmemory, 100, clear);
   rv_hook(shmup::hooks_turn, 100, turn);
   rv_hook(hooks_drawcell, 100, visualize_subcells);
   rv_hook(rogueviz::hooks_rvmenu, 100, [] {

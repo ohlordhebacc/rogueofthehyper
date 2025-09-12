@@ -155,6 +155,10 @@ EX void resetmusic() {
     }
   }
 
+#if HDR
+constexpr eLand mfcode(const char* buf) { return eLand((buf[0] - '0') * 10 + buf[1] - '0'); }
+#endif
+
 EX bool loadMusicInfo(string dir) {
   DEBBI(DF_INIT, ("load music info"));
   if(dir == "") return false;
@@ -197,7 +201,7 @@ EX bool loadMusicInfo(string dir) {
 
 EX bool loadMusicInfo() {
   return
-    loadMusicInfo(find_file(musicfile))
+    (musicfile[0] && loadMusicInfo(find_file(musicfile)))
     || loadMusicInfo(find_file("hyperrogue-music.txt") )
     || loadMusicInfo(find_file("music/hyperrogue-music.txt") )
 #ifdef FHS
@@ -210,7 +214,7 @@ EX void initAudio() {
   audio = loadMusicInfo();
 
   if(audio) {
-    if(Mix_OpenAudio(MIX_DEFAULT_FREQUENCY, MIX_DEFAULT_FORMAT, 2, 2048) != 0) {
+    if(SDL23(Mix_OpenAudio(MIX_DEFAULT_FREQUENCY, MIX_DEFAULT_FORMAT, 2, 2048) != 0, !Mix_OpenAudio(0, nullptr))) {
       fprintf(stderr, "Unable to initialize audio: %s\n", Mix_GetError());
       audio = false;
       }

@@ -170,7 +170,7 @@ EX namespace whirlwind {
       auto mi = movei(c, dfrom[0]);
       jdata.moves.push_back(mi.rev());
       cell *c2 = c->move(dfrom[0]);
-      if(!passable(c, c2, P_JUMP1)) return NULL;
+      if(!passable(c, c2, P_JUMP1 | P_ISPLAYER)) return NULL;
       if(player && i == 0 && !passable(c, c2, P_ISPLAYER)) return NULL;
       c = c2;
       }
@@ -843,6 +843,15 @@ EX namespace clearing {
       }
     }
   
+  bool goes_below(cell *c, int d, int steps) {
+    if(pseudohept(c)) return false;
+    if(celldistAlt(c) < d) return true;
+    if(celldistAlt(c) > d) return false;
+    if(steps == 0) return false;
+    forCellIdCM(c2, i, c) if(goes_below(c2, d, steps-1)) return true;
+    return false;
+    }
+
   int plantdir(cell *c) {
     if(have_alt(c))
       gen_alt_around(c);
@@ -878,7 +887,7 @@ EX namespace clearing {
         }
       }
     if(quseful == 1) return tuseful2;
-    if(quseful == 2) {
+    if(quseful == 2 && geometry == gNormal) {
       int i;
       if(tuseful == (1<<3)+(1<<5)) i = 3;
       if(tuseful == (1<<5)+(1<<1)) i = 5;
@@ -888,8 +897,12 @@ EX namespace clearing {
       if((d & 7) < 4) i = (i+2) % c->type;
       return i;
       }
-    printf("error in plantdir\n");
-    return 1;
+    for(int steps=0; steps<60; steps++)
+      forCellIdCM(c2, i2, c)
+        if(goes_below(c2, d, steps))
+          return i2;
+    println(hlog, "error in plantdir, quseful = ", quseful);
+    return -1;
     }
 
   vector<cell*> onpath;
@@ -932,7 +945,7 @@ EX namespace clearing {
     
     int steps = 0;
     
-    int ds;
+    int ds = 0; /* set to 0 to silence warning */
     
     int stepcount = 0;
     while(true) {
@@ -957,6 +970,7 @@ EX namespace clearing {
         steps++;
         onpath.push_back(c); pdir.push_back(d);
         // printf("c [%4d] %p -> %p\n", celldistAlt(c), c, c->move(d));
+        if(d == -1) break;
         c = c->move(d);
         }
       else {
@@ -1996,7 +2010,7 @@ EX namespace hive {
     for(int i=0; i<c->type; i++) {
       if(c->move(i) && c->move(i)->mpdist < c->mpdist) gdir = i;
       }
-    if(!gdir) return;
+    if(gdir == -1) return;
     cellwalker bf(c, gdir);
     int radius = 9;
     if(getDistLimit() <= 6) radius = 6;
@@ -2215,7 +2229,7 @@ EX namespace heat {
         addMessage(XLAT("%The1 melts away!", c->monst));
         fallMonster(c);
         }
-      if(c->wall == waIcewall && HEAT(c) > .4) 
+      if(c->wall == waIcewall && HEAT(c) > .4)
         drawParticles(c, MELTCOLOR, 4, 60),
         c->wall = waNone, kills[0]++;
       if(c->wall == waFrozenLake && HEAT(c) > (c->land == laCocytus ? .6 : .4)) 
@@ -2245,6 +2259,7 @@ EX namespace heat {
     manual_celllister cl;
     
     vector<cell*>& allcells = currentmap->allcells();
+    int siz = isize(offscreen_fire);
 
     for(int x: {0,1}) for(cell *c: x==0 ? allcells : offscreen_fire) {
       if(!cl.add(c)) continue;
@@ -2342,10 +2357,15 @@ EX namespace heat {
       else if(cellHalfvine(c)) destroyHalfvine(c, waPartialFire, 6);
       else makeflame(c, qty, false);
       if(c->wparam < qty) c->wparam = qty;
-      offscreen2.push_back(c);
       if(c->land == laRose || c->land == laWildWest || c->land == laOvergrown || isHaunted(c->land) || c->land == laMountain || c->land == laIce) {
-        for(int j=c->mpdist-1; j>=7; j--) setdist(c, j, NULL);
+        if(randomPatternsMode || siz > 5000) {
+           /* do not add to offscreen2 so that the fire will spread later */
+          if(c->mpdist == 8) continue;
+          }
+        else
+          for(int j=c->mpdist-1; j>=7; j--) setdist(c, j, NULL);
         }
+      offscreen2.push_back(c);
       }
    
     offscreen_fire = std::move(offscreen2);
@@ -3652,7 +3672,7 @@ EX namespace windmap {
       // cw.spin = 0;
       neighbors.emplace_back();
       auto &v = neighbors.back();
-      if(NONSTDVAR && !sphere && !arcm::in() && !mhybrid && !INVERSE && WDIM == 2)
+      if(NONSTDVAR && !sphere && !arcm::in() && !mhybrid && !INVERSE && WDIM == 2 && geometry != gOctTet3)
         for(int l=0; l<S7; l++) {
           v.push_back(getId(cw + cth + l + wstep + cth));
           }

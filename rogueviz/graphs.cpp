@@ -897,15 +897,6 @@ void init(flagtype _vizflags) {
 
 int search_for = -1;
 
-vector<reaction_t> cleanup;
-
-void do_cleanup() {
-  while(!cleanup.empty()) {
-    cleanup.back()();
-    cleanup.pop_back();
-    }
-  }
-
 void close() { 
   search_for = -1;
   for(int i=0; i<isize(vdata); i++)
@@ -915,9 +906,7 @@ void close() {
   legend.clear();
   for(int i=0; i<isize(edgeinfos); i++) delete edgeinfos[i];
   edgeinfos.clear();
-  callhooks(hooks_close);
   edgetypes.clear();
-  do_cleanup();
   relmatrices.clear();
   }
 

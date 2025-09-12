@@ -754,6 +754,7 @@ void apply_chaos() {
   }
   
 bool pcmove::actual_move() {
+  eMonster pushedMonster = moNone;
 
   origd = d;
   if(d >= 0) {
@@ -805,6 +806,7 @@ bool pcmove::actual_move() {
     if(mip.proper()) {
       auto tgt = roll_effect(mip, dice::data[c2]);
       if(tgt.happy() > 0) {
+        pushedMonster = c2->monst;
         changes.ccell(c2);
         c2->monst = moNone;
         c2->wall = waRichDie;
@@ -840,7 +842,8 @@ bool pcmove::actual_move() {
       return false;
       }
     nextmovetype = lmMove;
-    addMessage(XLAT("You push %the1.", c2->wall));
+    if(pushedMonster == moNone) addMessage(XLAT("You push %the1.", c2->wall));
+    else addMessage(XLAT("You push %the1.", pushedMonster));
     lastmovetype = lmPush; lastmove = cwt.at;
     pushThumper(mip);
     changes.push_push(mip.t);
@@ -1091,6 +1094,9 @@ bool pcmove::move_if_okay() {
       return false;
     }
 
+  if(getOLR(c2->item, c2->land) == olrDangerous && !checkonly && warningprotection(XLAT("Collecting %the1 in %the2 can be dangerous -- are you sure?", c2->item, c2->land)))
+    return false;
+
   if(switchplace_prevent(cwt.at, c2, *this))
     return false;
   if(!checkonly && warningprotection_hit(do_we_stab_a_friend(mi, moPlayer)))
@@ -1152,7 +1158,7 @@ bool pcmove::attack() {
   auto& c2 = mi.t;
   if(!fmsAttack) return false;
 
-  if(items[itOrbFlash] || items[itOrbLightning])
+  if((items[itOrbFlash] || items[itOrbLightning]) && !good_tortoise)
     return false;
   
   attackflags = AF_NORMAL;

@@ -176,9 +176,23 @@ EX bool ineligible_starting_land;
 
 EX int easy_specialland;
 
+EX void reset_cheats() {
+  if(autocheat) {
+    cheater = 1;
+    return;
+    }
+  cheater = 0;
+  reptilecheat = false;
+  shadingcheat = false;
+  timerghost = true;
+  gen_wandering = true;
+  }
+
 /** \brief initialize the game */
 EX void initgame() {
   DEBBI(DF_INIT, ("initGame"));
+  if(!safety) reset_cheats();
+
   callhooks(hooks_initgame);
 
   modecode(1);
@@ -402,15 +416,9 @@ EX void initgame() {
     loadcount = 0; current_loadcount = 0; load_branching = 0;
 
     tortoise::last21tort = 0;
-    cheater = 0;
-    if(autocheat) cheater = 1;
     if(!wfc::use_eclectic) cheater = 1;
     if(!autocheat && !cheater && geometry == gNormal) patterns::whichShape = 0;
     hauntedWarning = false;
-    if(!autocheat) {
-      timerghost = true;
-      gen_wandering = true;
-      }
     truelotus = 0;
     asteroids_generated = 0;
     asteroid_orbs_generated = 0;
@@ -1456,8 +1464,8 @@ EX void stop_game() {
   camelot::knighted = 0;
   #endif
   // items[itGreenStone] = 100;
-  clearMemory();
   game_active = false;
+  clearMemory();
 #if CAP_DAILY
   if(daily::on)
     daily::turnoff();
@@ -1547,13 +1555,6 @@ EX void set_variation(eVariation target) {
     }
   }
 
-void stop_tour() {
-  while(gamestack::pushed()) {
-    gamestack::pop();
-    stop_game();
-    }
-  }
-
 EX void switch_game_mode(char switchWhat) {
   DEBBI(DF_INIT, ("switch_game_mode ", switchWhat));
   switch(switchWhat) {
@@ -1566,7 +1567,6 @@ EX void switch_game_mode(char switchWhat) {
       break;
 
     case rg::dualmode:
-      stop_tour(); tour::on = false;
       racing::on = false;
       yendor::on = tactic::on = princess::challenge = false;
       bow::weapon = bow::wBlade;
@@ -1592,7 +1592,6 @@ EX void switch_game_mode(char switchWhat) {
 
 #if CAP_TOUR
     case rg::tour:
-      if(tour::on) stop_tour();
       geometry = gNormal;
       yendor::on = tactic::on = princess::challenge = peace::on = inv::on = false;
       dual::disable();
@@ -1603,7 +1602,6 @@ EX void switch_game_mode(char switchWhat) {
       gp::param = gp::loc(1, 1);
       #endif
       shmup::on = false;
-      tour::on = !tour::on;
       racing::on = false;
       break;
 #endif
@@ -1626,7 +1624,6 @@ EX void switch_game_mode(char switchWhat) {
       racing::on = !racing::on;
       shmup::on = racing::on;
       peace::on = false;
-      tour::on = false;
       inv::on = false;
       yendor::on = false;
       land_structure = racing::on ? lsSingle : lsNiceWalls;
@@ -1738,6 +1735,12 @@ EX void start_game() {
 // popAllScreens + popAllGames + stop_game + switch_game_mode + start_game
 EX void restart_game(char switchWhat IS(rg::nothing)) {
   popScreenAll();
+  stop_game_and_switch_mode(switchWhat);
+  start_game();
+  }
+
+// stop_game + switch_game_mode
+EX void stop_game_and_switch_mode(char switchWhat IS(rg::nothing)) {
   #if CAP_RACING
   if(switchWhat == rg::nothing && racing::on) {
     racing::restore_goals();
@@ -1746,15 +1749,12 @@ EX void restart_game(char switchWhat IS(rg::nothing)) {
     return;
     }
   #endif
+  bool b = (switchWhat == rg::tour && !tour::on);
+  if(tour::on && among(switchWhat, rg::racing, rg::tour, rg::dualmode))
+    tour::stop_tour();
   stop_game();
   switch_game_mode(switchWhat);
-  start_game();
-  }
-
-// stop_game + switch_game_mode
-EX void stop_game_and_switch_mode(char switchWhat IS(rg::nothing)) {
-  stop_game();
-  switch_game_mode(switchWhat);
+  if(b) tour::on = true;
   }
 
 EX purehookset hooks_clearmemory;
@@ -1820,8 +1820,6 @@ EX void initAll() {
   srand(time(NULL));
   shrand(fixseed ? startseed : time(NULL));
 
-  achievement_init(); // not in ANDROID
-
   firstland0 = firstland;
 
   // initlanguage();
@@ -1870,7 +1868,6 @@ EX void finishAll() {
   quit_all();
 #endif
 
-  achievement_close();
   callhooks(hooks_final_cleanup);
   }
 

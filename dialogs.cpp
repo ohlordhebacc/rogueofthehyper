@@ -55,7 +55,8 @@ EX namespace dialog {
     reaction_t reaction_final;
     reaction_t extra_options;
     virtual void draw() = 0;
-    void operator() () { draw(); }
+    bool closed;
+    void operator() () { if(closed) popfinal(); else draw(); }
     virtual ~extdialog() {};
     extdialog();
     /** Pop screen, then call the final reaction. A bit more complex because it eeds to backup reaction_final due to popScreen */
@@ -708,6 +709,8 @@ EX namespace dialog {
     #endif
     }
 
+  EX string keyboard_what;
+
   EX void display() {
 
     callhooks(hooks_display_dialog);
@@ -924,6 +927,14 @@ EX namespace dialog {
           if(in) {
             if(c == 1) getcstat = SDLK_LEFT;
             else if(c == 2) getcstat = SDLK_RIGHT;
+            else if(c == 3) {
+              getcstat = PSEUDOKEY_ONSCREEN_KEYBOARD;
+              keyboard_what = "pi";
+              }
+            else if(c >= 32) {
+              getcstat = PSEUDOKEY_ONSCREEN_KEYBOARD;
+              keyboard_what = ""; keyboard_what += c;
+              }
             else getcstat = c;
             }
           displayfr(xpos, mid, 2, dfsize * I.scale/100, s, dialogcolor_over(in), 8);
@@ -1093,7 +1104,7 @@ EX namespace dialog {
   void color_dialog::draw() {
     cmode = sm::NUMBER | dialogflags;
     if(cmode & sm::SIDE) gamescreen();
-    else emptyscreen();
+    else stillscreen = true, emptyscreen();
 
     dcenter = vid.xres/2;
     dwidth = vid.xres;
@@ -1369,42 +1380,65 @@ EX namespace dialog {
     };
 
   void number_dialog_help :: operator() () {
-    auto ne = *ptr;
     init("number dialog help");
     dialog::addBreak(100);
     dialog::addHelp(XLAT("You can enter formulas in this dialog."));
-    dialog::addBreak(100);
-    dialog::addHelp(XLAT("Functions available:"));
-    addHelp(available_functions());
-    dialog::addBreak(100);
-    dialog::addHelp(XLAT("Constants and variables available:"));
-    addHelp(available_constants());
-    if(ptr && ne.animatable) {
+
+    dialog::addBreak(150);
+
+    dialog::addItem("functions and constants", 'f');
+    dialog::add_action_push([] {
+      init("functions and constants");
+      dialog::addHelp(XLAT("Functions available:"));
+      addHelp(available_functions());
       dialog::addBreak(100);
-      dialog::addHelp(XLAT("Animations:"));
-      dialog::addHelp(XLAT("a..b -- animate linearly from a to b"));
-      dialog::addHelp(XLAT("a..b..|c..d -- animate from a to b, then from c to d"));
-      dialog::addHelp(XLAT("a../x..b../y -- change smoothly, x and y are derivatives"));
-      }
-    
-    /* "Most parameters can be animated simply by using '..' in their editing dialog. "
-      "For example, the value of a parameter set to 0..1 will grow linearly from 0 to 1. "
-      "You can also use functions (e.g. cos(0..2*pi)) and refer to other parameters."
-      )); */
-    
+      dialog::addHelp(XLAT("Constants available:"));
+      addHelp(available_constants());
+      dialog::addBreak(100);
+      dialog::addBack();
+      dialog::display();
+      });
+
+    dialog::addItem("variables", 'v');
+    dialog::add_action_push([] {
+      init("variables");
+      addHelp(available_variables());
+      dialog::addBreak(100);
+      dialog::addBack();
+      dialog::display();
+      });
+
     #if CAP_ANIMATIONS
-    dialog::addBreak(50);
-    auto f = find_edit(!ptr ? nullptr : ne.intval ? (void*) ne.intval : (void*) ne.editwhat);
+    auto f = find_edit(!ptr ? nullptr : ptr->intval ? (void*) ptr->intval : (void*) ptr->editwhat);
     if(f)
-      dialog::addHelp(XLAT("Parameter names, e.g. '%1'", f->name));
+      dialog::addItem(XLAT("parameter names, e.g. '%1'", f->name), 'p');
     else
-      dialog::addHelp(XLAT("Parameter names"));
-    dialog::addBreak(50);
-    for(auto& ap: anims::aps) {
-      dialog::addInfo(ap.par->name + " = " + ap.formula);
-      }
+      dialog::addItem(XLAT("parameter names"), 'p');
+    dialog::add_action_push([] {
+      init("parameter names");
+      for(auto& ap: anims::aps) {
+        dialog::addInfo(ap.par->name + " = " + ap.formula);
+        }
+      dialog::addBreak(100);
+      dialog::addBack();
+      dialog::display();
+      });
     #endif
-    dialog::addBreak(50);
+
+    if(ptr && ptr->animatable) {
+      dialog::addItem("animations", 'a');
+      dialog::add_action_push([] {
+        init("Animations:");
+        dialog::addHelp(XLAT("a..b -- animate linearly from a to b"));
+        dialog::addHelp(XLAT("a..b..|c..d -- animate from a to b, then from c to d"));
+        dialog::addHelp(XLAT("a../x..b../y -- change smoothly, x and y are derivatives"));
+        dialog::addBreak(100);
+        dialog::addBack();
+        dialog::display();
+        });
+      }
+
+    dialog::addBreak(150);
     dialog::addHelp(XLAT("These can be combined, e.g. %1", "projection*sin(0..2*pi)"));
     display();
     }
@@ -1455,7 +1489,7 @@ EX namespace dialog {
     
     display();
 
-    #if CAP_SDL2
+    #if SDLVER >= 2
     texthandler = [&ne] (const SDL_TextInputEvent& ev) {
       if(key_actions.count(ev.text[0])) return;
       ne.s += ev.text;
@@ -1465,14 +1499,7 @@ EX namespace dialog {
     
     keyhandler = [this, &ne] (int sym, int uni) {
       handleNavigation(sym, uni);
-      if((uni >= '0' && uni <= '9') || among(uni, '.', '+', '-', '*', '/', '^', '(', ')', ',', '|', 3) || (uni >= 'a' && uni <= 'z')) {
-        #if !CAP_SDL2
-        if(uni == 3) ne.s += "pi";
-        else ne.s += uni;
-        apply_edit();
-        #endif
-        }
-      else if(uni == '\b' || uni == '\t') {
+      if(uni == '\b' || uni == '\t') {
         ne.s = ne.s. substr(0, isize(ne.s)-utfsize_before(ne.s, isize(ne.s)));
         sscanf(ne.s.c_str(), LDF, ne.editwhat);
         apply_edit();
@@ -1519,6 +1546,18 @@ EX namespace dialog {
         *ne.editwhat = val;
           
         apply_slider();
+        }
+      else if(uni == PSEUDOKEY_ONSCREEN_KEYBOARD) {
+        ne.s += keyboard_what;
+        apply_edit();
+        }
+      else if(uni >= 32) {
+        #if SDLVER < 2
+        if((uni >= '0' && uni <= '9') || among(uni, '.', '+', '-', '*', '/', '^', '(', ')', ',', '|', ' ', '=') || (uni >= 'a' && uni <= 'z')) {
+          ne.s += uni;
+          apply_edit();
+          }
+        #endif
         }
       else if(doexiton(sym, uni)) ne.popfinal();
       };
@@ -1612,6 +1651,7 @@ EX namespace dialog {
     }
   
   extdialog::extdialog() {
+    closed = false;
     dialogflags = 0;
     if(cmode & sm::SIDE) dialogflags |= sm::MAYDARK | sm::SIDE;
     reaction = reaction_t();
@@ -1689,12 +1729,11 @@ EX namespace dialog {
   
   bool_reaction_t file_action;
   
-  void handleKeyFile(int sym, int uni);
-
   bool search_mode;
 
   struct file_dialog : extdialog {
     void draw() override;
+    void handleKey(int sym, int uni);
     };
 
   void file_dialog::draw() {
@@ -1744,7 +1783,7 @@ EX namespace dialog {
       dialog::lastItem().color = vv.second;
       string vf = vv.first;
       bool dir = vv.second == CDIR;
-      dialog::add_action([vf, dir] {
+      dialog::add_action([vf, dir, this] {
         string& s(*cfileptr);
         string where = "", what = s, whereparent = "../";
         string last = "";
@@ -1775,7 +1814,7 @@ EX namespace dialog {
           str1 = where + vf;
           if(s == str1) {
             bool ac = file_action();
-            if(ac) popScreen();
+            if(ac) closed = true;
             }
           s = str1;
           }
@@ -1791,17 +1830,17 @@ EX namespace dialog {
     dialog::addItem("cancel", SDLK_ESCAPE);
     dialog::display();
 
-    #if CAP_SDL2
+    #if SDLVER >= 2
     texthandler = [this] (const SDL_TextInputEvent& ev) {
       int i = isize(*cfileptr) - (editext?0:4);
       cfileptr->insert(i, ev.text);
       };
     #endif
 
-    keyhandler = handleKeyFile;
+    keyhandler = [this] (int sym, int uni) { handleKey(sym, uni); };
     }
   
-  EX void handleKeyFile(int sym, int uni) {
+  void file_dialog::handleKey(int sym, int uni) {
     handleNavigation(sym, uni);
     string& s(*cfileptr);
     int i = isize(s) - (editext?0:4);
@@ -1811,7 +1850,7 @@ EX namespace dialog {
       }
     else if(sym == SDLK_RETURN || sym == SDLK_KP_ENTER) {
       bool ac = file_action();
-      if(ac) popScreen();
+      if(ac) closed = true;
       }
     else if(sym == SDLK_BACKSPACE && i) {
       int len = utfsize_before(s, i);
@@ -1819,7 +1858,7 @@ EX namespace dialog {
       highlight_text = "//missing";
       list_skip = 0;
       }
-    #if !CAP_SDL2
+    #if SDLVER == 1
     else if(uni >= 32 && uni < 127) {
       s.insert(i, s0 + char(uni));
       highlight_text = "//missing";
@@ -1938,6 +1977,9 @@ EX namespace dialog {
     string u2;
     if(DKEY == SDLK_LEFT) editpos -= utfsize_before(es, editpos);
     else if(DKEY == SDLK_RIGHT) editpos += utfsize(es[editpos]);
+    else if(uni == '\t') {
+      es = ""; editpos = 0;
+      }
     else if(uni == 8) {
       if(editpos == 0) return true;
       int len = utfsize_before(es, editpos);
@@ -1946,7 +1988,7 @@ EX namespace dialog {
       if(reaction) reaction();
       }
     else if((u2 = checker(sym, uni)) != "") {
-      #if !CAP_SDL2
+      #if SDLVER == 1
       for(char c: u2) {
         es.insert(editpos, 1, c);
         editpos ++;
@@ -1959,7 +2001,7 @@ EX namespace dialog {
     }
 
   void string_dialog::handle_textinput() {
-    #if CAP_SDL2
+    #if SDLVER >= 2
     texthandler = [this] (const SDL_TextInputEvent& ev) {
       auto& es = *edited_string;
       string txt = ev.text;

@@ -207,7 +207,7 @@ EX void ge_land_selection() {
     dialog::lastItem().color = linf[l].color;
     dialog::lastItem().value += validclasses[land_validity(l).quality_level];
     dialog::add_action([l] {
-      if(landvisited[l]) dialog::do_if_confirmed(dual::mayboth([l] {
+      if(landvisited[l] || unlock_all) dialog::do_if_confirmed(dual::mayboth([l] {
         stop_game_and_switch_mode(tactic::on ? rg::tactic : rg::nothing);
         firstland = specialland = l;
         if(l == laCanvas || l == laAsteroids || (land_validity(l).flags & lv::switch_to_single))
@@ -851,7 +851,8 @@ EX geometry_data compute_geometry_data() {
   if(gd.euler < 0 && !closed_manifold)
     gd.worldsize = -gd.worldsize;
 
-  string spf = its(ts);
+  auto& spf = gd.spf;
+  spf = its(ts);
   if(0) ;
   #if CAP_ARCM
   else if(arcm::in()) {
@@ -1218,9 +1219,20 @@ EX void field_quotient_3d(int p, unsigned hash) {
   set_geometry(gFieldQuotient);
   for(;; p++) { 
     println(hlog, "trying p = ", p);
-    currfp.Prime = p; currfp.force_hash = hash; if(!currfp.solve()) break; 
+    currfp.Prime = p; currfp.force_hash = hash;
+    if(!currfp.solve()) break;
     }
   println(hlog, "set prime = ", currfp.Prime);
+  }
+
+EX void field_quotient_3d(string code) {
+  check_cgi();
+  cgi.require_basics();
+  stop_game_and_switch_mode(rg::nothing);
+  fieldpattern::field_from_current();
+  set_geometry(gFieldQuotient);
+  shstream ins(code);
+  hread_fpattern(ins, currfp);
   }
 
 EX void field_quotient_2d(int group, int id, int triplet) {
@@ -1383,7 +1395,7 @@ int read_geom_args() {
     }
   #endif
   else if(argis("-d:quotient")) 
-    launch_dialog(showQuotientConfig);
+    launch_dialog(WDIM == 2 ? showQuotientConfig : showQuotientConfig3);
   else if(argis("-uqf")) 
     fieldpattern::use_quotient_fp = true;
   #endif

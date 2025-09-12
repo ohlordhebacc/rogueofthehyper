@@ -11,6 +11,33 @@ namespace hr {
 
 EX namespace fifteen {
 
+struct puzzle {
+  string name;
+  string filename;
+  string desc;
+  string url;
+  string full_filename() const {
+    return find_file("fifteen/" + filename + ".lev");
+    }
+  };
+
+vector<puzzle> puzzles = {
+  puzzle{"15", "classic", "The original Fifteen puzzle.", ""},
+  puzzle{"15+4", "fifteen", "The 15+4 puzzle by Henry Segerman.", "https://www.youtube.com/watch?v=Hc3yfuXiWe0"},
+  puzzle{"15-4", "sphere11", "The 15-4 puzzle.", ""},
+  puzzle{"coiled", "coiled", "Coiled fifteen puzzle by Henry Segerman.", "https://www.youtube.com/watch?v=rfAEgxNEOrQ"},
+  puzzle{"Möbius band", "mobiusband", "Fifteen puzzle on a Möbius band.", ""},
+  puzzle{"Kite-and-dart", "kitedart", "Kite-and-dart puzzle.", ""},
+  puzzle{"29", "29", "The 29 puzzle by Henry Segerman.", "https://www.youtube.com/watch?v=EitWHthBY30"},
+  puzzle{"12", "12", "The 12 puzzle mentioned in the same video by Henry Segerman.", "https://www.youtube.com/watch?v=EitWHthBY30"},
+  puzzle{"124", "124", "The 124 puzzle mentioned in the same video by Henry Segerman.", "https://www.youtube.com/watch?v=EitWHthBY30"},
+  puzzle{"60", "60", "The 60 puzzle mentioned in the same video by Henry Segerman.", "https://www.youtube.com/watch?v=EitWHthBY30"},
+  puzzle{"Continental drift", "sphere19", "Based on the Continental Drift puzzle by Henry Segerman.", "https://www.youtube.com/watch?v=0uQx33KFMO0"},
+  };
+
+puzzle *current_puzzle;
+reaction_t quitter;
+
 static constexpr int Empty = 0;
 
 struct celldata {
@@ -26,6 +53,10 @@ vector<int> triangle_markers;
 vector<cell*> seq;
 vector<ld> turns;
 
+enum class state { edited, unscrambled, scrambled, solved };
+
+state state = state::edited;
+
 eWall empty = waChasm;
 
 enum ePenMove { pmJump, pmRotate, pmAdd, pmMirrorFlip };
@@ -35,13 +66,12 @@ bool show_triangles = false;
 bool show_dots = true;
 
 void init_fifteen(int q = 20) {  
-  println(hlog, "init_fifteen");
   auto ac = currentmap->allcells();
   for(int i=0; i<min(isize(ac), q); i++) {
     fif[ac[i]] = {i, 0, false, i, 0, false};
     }  
   cwt.at = ac[0];
-  println(hlog, "ok");
+  quitter = [] {};
   }
 
 void compute_triangle_markers() {
@@ -63,9 +93,10 @@ void compute_triangle_markers() {
 
   println(hlog, triangle_markers);
 
-  for(int i=0; i<isize(fif); i++) {
+  for(int i=0; i<isize(fif)-1; i++) {
     turns.push_back(triangle_markers[i+1] == 0 ? 90._deg : 0);
     }
+  turns.push_back(0);
   }
 
 string dotted(int i) {
@@ -100,12 +131,26 @@ void check_move() {
     cell *c1 = cwt.at->cmove(i);
     if(fif.count(c1) && fif[c1].current == Empty) {
       make_move(c1, cwt.at->c.spin(i));
+      if(state == state::scrambled) {
+        bool ok = true;
+        for(auto& [c,f]: fif) {
+          if(f.current != f.target) ok = false;
+          if(f.current && (f.currentdir != f.targetdir || f.currentmirror != f.targetmirror))
+            ok = false;
+          }
+        if(ok == true) {
+          state = state::solved;
+          #if RVCOL
+          if(current_puzzle == &puzzles[1]) rogueviz::rv_achievement("FIFTEEN");
+          #endif
+          }
+        }
       }
     }
   }
 
 void scramble() {
-  for(int i=0; i<1000; i++) {
+  for(int i=0; i<10000; i++) {
     int d = hrand(cwt.at->type);
     cell *c1 = cwt.at->move(d);
     if(fif.count(c1)) {
@@ -113,18 +158,26 @@ void scramble() {
       cwt.at = c1;
       }
     }     
+  if(state == state::unscrambled || state == state::solved) state = state::scrambled;
   }
 
+bool mouse_over_button;
+
+bool fifteen3 = true;
+
 bool draw_fifteen(cell *c, const shiftmatrix& V) {
+  hr::addaura(tC0(V), darkened(0x0000FF), 0);
   lastexplore = turncount;
-  if(!fif.count(c)) { c->land = laNone; c->wall = waChasm; return false; }
+  if(!fif.count(c)) { c->land = laNone; c->wall = waChasm; c->item = itNone; c->monst = moNone; return false; }
   check_move();
     
   auto& cd = fif[c];
+
+  bool showing = anyshiftclick | mouse_over_button;
   
-  int cur = anyshiftclick ? cd.target : cd.current;
-  int cdir = anyshiftclick ? cd.targetdir : cd.currentdir;
-  bool cmir = anyshiftclick ? cd.targetmirror : cd.currentmirror;
+  int cur = showing ? cd.target : cd.current;
+  int cdir = showing ? cd.targetdir : cd.currentdir;
+  bool cmir = showing ? cd.targetmirror : cd.currentmirror;
   
   if(cur == Empty) {
     c->land = laCanvas;
@@ -132,6 +185,19 @@ bool draw_fifteen(cell *c, const shiftmatrix& V) {
     c->landparam = 0x101080;
     }
   else {
+
+    if(fifteen3) {
+      set_floor(cgi.shFullFloor);
+      ensure_floorshape_generated(shvid(c), c);
+      for(int i=0; i<c->type; i++)
+        if(!fif.count(c->move(i)) || (showing ? fif[c->move(i)].target : fif[c->move(i)].current) == Empty)
+          placeSidewall(c, i, SIDE::RED1, V, 0xFFFFFFFF);
+      auto V1 = orthogonal_move_fol(V, cgi.RED[1]);
+      draw_qfi(c, V1, 0xFFFFFFFF, PPR::WALL_DECO);
+      write_in_space(V1 * ddspin(c,cdir,0) * (cmir ? MirrorX: Id), 72, 1, dotted(cur), 0xFF, 0, 8);
+      return true;
+      }
+
     c->land = laCanvas;
     c->wall = waNone;
     c->landparam = 0xFFFFFF;
@@ -151,6 +217,9 @@ bool draw_fifteen(cell *c, const shiftmatrix& V) {
   return false;
   }
 
+string fname = "fifteen-saved.lev";
+void enable();
+
 void edit_fifteen() {
 
   if(!fif.count(cwt.at)) 
@@ -166,8 +235,8 @@ void edit_fifteen() {
   ss->item = itGold;
   gamescreen();
   ss->item = itNone;
-  
-  dialog::init("Fifteen Puzzle", iinf[itPalace].color, 150, 100);
+
+  dialog::init("edit puzzle", iinf[itPalace].color, 150, 100);
 
   dialog::addBoolItem("jump", pen == pmJump, 'j');
   dialog::add_action([] { pen = pmJump; });
@@ -198,36 +267,79 @@ void edit_fifteen() {
     init_fifteen(1);
     });
 
-  dialog::addItem("scramble", 's');
-  dialog::add_action(scramble);
-  
   dialog::addItem("save this puzzle", 'S');
   dialog::add_action([] { 
-    mapstream::saveMap("fifteen.lev");
-    #if ISWEB
-    offer_download("fifteen.lev", "mime/type");
-    #endif
+    mapeditor::save_level_ext(fname, [] {});
     });
+
+  dialog::addItem("load a puzzle", 'L');
+  dialog::add_action([] { 
+    auto q = quitter;
+    mapeditor::load_level_ext(fname, [q] {
+      for(auto& p: puzzles) if(fname == p.full_filename()) current_puzzle = &p;
+      quitter = q;
+      });
+    });
+
+  dialog::addItem("new geometry", 'G');
+  dialog::add_action([] {
+    auto q = quitter;
+    hook_in_subscreen(hooks_post_initgame, 100, [q] {
+      init_fifteen(10);
+      enable();
+      quitter = q;
+      state = state::unscrambled;
+      });
+    hook_in_subscreen(dialog::hooks_display_dialog, 100, [q] {
+      for(auto& it: dialog::items)
+        if(among(it.body, XLAT("land structure"), XLAT("pattern"), XLAT("adjacency rule"))) {
+          it.type = dialog::diBreak;
+          it.scale = 0;
+          dialog::key_actions.erase(it.key);
+          }
+      });
+    runGeometryExperiments();
+    });
+
+  dialog::addBreak(100);
+  dialog::addBigItem("options", iinf[itPalace].color);
+
+  dialog::addItem("scramble", 's');
+  dialog::add_action(scramble);
 
   dialog::addItem("settings", 'X');
   dialog::add_action_push(showSettings);
 
   mine_adjacency_rule = true;
-  
-  dialog::addItem("new geometry", 'G');
-  dialog::add_action(runGeometryExperiments);
 
-  dialog::addItem("load a puzzle", 'L');
-  dialog::add_action([] { 
-    #if ISWEB
-    offer_choose_file([] {
-      mapstream::loadMap("data.txt");
+  if(current_puzzle && current_puzzle->url != "") {
+    dialog::addItem("Henry Segerman's video", 'V');
+    dialog::add_action([] {
+      open_url(current_puzzle->url);
       });
-    #else
-    mapstream::loadMap("fifteen.lev");
-    #endif
-    mapeditor::drawplayer = false;
-    });
+    }
+
+  add_edit(fifteen3);
+
+  switch(state) {
+    case state::edited:
+      dialog::addInfo("edited");
+      break;
+
+    case state::unscrambled:
+      dialog::addInfo("not scrambled yet");
+      break;
+
+    case state::scrambled:
+      dialog::addInfo("scrambled");
+      break;
+
+    case state::solved:
+      dialog::addInfo("solved!");
+      break;
+    };
+
+  if(quitter) quitter();
 
   dialog::addBack();
   
@@ -241,12 +353,14 @@ void edit_fifteen() {
       
       if(pen == pmJump) {
         if(fif.count(c)) {
+          state = state::edited;
           auto& f0 = fif[cwt.at];
           auto& f1 = fif[c];
           swap(f0, f1);
           cwt.at = c;
           }
         else {
+          state = state::edited;
           fif[c] = fif[cwt.at];
           fif.erase(cwt.at);
           cwt.at = c;
@@ -255,6 +369,7 @@ void edit_fifteen() {
       
       if(pen == pmRotate) {
         if(fif.count(c) == 0) return;
+        state = state::edited;
         auto& f1 = fif[c];
         f1.currentdir = gmod(1+f1.currentdir, c->type);        
         f1.targetdir = gmod(1+f1.targetdir, c->type);        
@@ -262,6 +377,7 @@ void edit_fifteen() {
       
       if(pen == pmMirrorFlip) {
         if(fif.count(c) == 0) return;
+        state = state::edited;
         auto& f1 = fif[c];
         f1.currentmirror ^= true;
         f1.targetmirror ^= true; 
@@ -272,8 +388,10 @@ void edit_fifteen() {
           auto& f = fif[c];
           f.current = f.target = isize(fif)-1;
           f.currentdir = f.targetdir == 0;
+          state = state::edited;
           }
         else {
+          state = state::edited;
           auto& f = fif[c];
           if(f.current == isize(fif)-1)
             fif.erase(c);
@@ -305,10 +423,8 @@ void load_fifteen(hstream& f) {
   int num;
   f.read(num);
   fif.clear();
-  println(hlog, "read num = ", num);
   for(int i=0; i<num; i++) {
     int32_t at = f.get<int>();
-    println(hlog, "at = ", at);
     cell *c = mapstream::cellbyid[at];
     auto& cd = fif[c];      
     f.read(cd.target);
@@ -321,14 +437,24 @@ void load_fifteen(hstream& f) {
     if(nonorientable) 
       f.read(cd.currentmirror);
     cd.currentdir = mapstream::fixspin(mapstream::relspin[at], cd.currentdir, c->type, f.vernum);
-    println(hlog, "assigned ", cd.current, " to ", c);
     }
   compute_triangle_markers();
   enable();
+  state = state::unscrambled;
   }
 
+void fifteen_play();
+
 void o_key(o_funcs& v) {
-  v.push_back(named_dialog("edit the Fifteen puzzle", edit_fifteen));
+  v.push_back(named_functionality("Fifteen interface", [] {
+     auto s = screens;
+     pushScreen(fifteen_play);
+     clearMessages();
+     quitter = [s] {
+       dialog::addItem("quit", 'Q');
+       dialog::add_action([s] { screens = s; });
+       };
+     }));
   }
 
 void enable() {
@@ -353,6 +479,10 @@ void enable() {
   rogueviz::rv_hook(hooks_clearmemory, 40, [] () {
     fif.clear();
     });
+  rogueviz::rv_hook(hooks_music, 100, [] (eLand& l) { l = mfcode("C2"); return false; });
+  rogueviz::rv_change(patterns::whichShape, '9');
+  state = state::edited;
+  current_puzzle = nullptr;
   }
 
 #if CAP_COMMANDLINE
@@ -401,10 +531,74 @@ int rugArgs() {
   return 0;
   }
 
+void default_view_for_puzzle(const puzzle& p) {
+  auto lev = p.filename;
+  if(lev == "coiled" || lev == "mobiusband")
+    View = spin90() * View;
+  if(lev == "mobiusband")
+    View = MirrorX * View;
+  if(hyperbolic) rogueviz::rv_change(pconf.scale, 0.95);
+  }
+
+void fifteen_play() {
+  getcstat = '-';
+  cmode = sm::PANNING;
+  gamescreen();
+  stillscreen = true;
+
+  dialog::init();
+
+  clearMessages();
+  displayButton(vid.fsize, vid.yres - vid.fsize*2, "Shift to see solution", ' ', 0);
+  displayButton(vid.fsize, vid.yres - vid.fsize, "mouse or WADX to move", ' ', 0);
+  mouse_over_button = getcstat == ' ';
+
+  displayButton(vid.xres - vid.fsize, vid.yres - vid.fsize, "(v) menu", 'v', 16);
+  dialog::add_key_action('v', [] { pushScreen(edit_fifteen); });
+
+  keyhandler = [] (int sym, int uni) {
+    handlePanning(sym, uni);
+    handle_movement(sym, uni);
+    if(sym == '-' || sym == PSEUDOKEY_WHEELDOWN) {
+      actonrelease = false;
+      mousemovement();
+      }
+    dialog::handleNavigation(sym, uni);
+    };
+  }
+
+void fifteen_menu() {
+  cmode = sm::NOSCR;
+  clearMessages();
+  gamescreen();
+  stillscreen = true;
+
+  dialog::init(XLAT("Variants of the Fifteen Puzzle"), 0x2020C0, 200, 0);
+  char key = 'a';
+  for(auto& p: puzzles) {
+    dialog::addBigItem(p.name, key++);
+    dialog::add_action([&p] {
+      popScreenAll();
+      mapstream::loadMap(p.full_filename());
+      fullcenter();
+      default_view_for_puzzle(p);
+      pushScreen([]{ quitmainloop = true; });
+      pushScreen(fifteen_play);
+      current_puzzle = &p;
+      quitter = [] {
+        dialog::addItem("quit", 'q');
+        dialog::add_action([] { quitmainloop = true; });
+        };
+      });
+    dialog::addInfo(p.desc);
+    }
+  dialog::display();
+  }
+
 auto fifteen_hook = 
   addHook(hooks_args, 100, rugArgs)
 #if CAP_SHOT
-+ arg::add3("-fifteen-animate", [] { 
++ arg::add3("-fifteen-animate", [] {
     rogueviz::rv_hook(anims::hooks_record_anim, 100, [] (int i, int nof) {
     double at = (i * (isize(seq)-1) * 1.) / nof;
     int ati = at;
@@ -443,8 +637,10 @@ auto fifteen_hook =
 + addHook(hooks_configfile, 100, [] {
     param_b(show_dots, "fifteen_dots");
     param_b(show_triangles, "fifteen_tris");
+    param_b(fifteen3, "fifteen_3d")
+    -> editable("3D Fifteen tile effects", '3');
     })
-+ addHook_slideshows(120, [] (tour::ss::slideshow_callback cb) {
++ addHook_slideshows(95, [] (tour::ss::slideshow_callback cb) {
 
     using namespace rogueviz::pres;
     static vector<slide> fifteen_slides;
@@ -458,13 +654,13 @@ auto fifteen_hook =
           [] (presmode mode) {}
           });
       
-      auto add = [&] (string s, string lev, string text, string youtube = "") {
+      for(auto p: puzzles) {
         fifteen_slides.emplace_back(
-          tour::slide{s, 100, LEGAL::NONE | QUICKGEO, text,
+          tour::slide{p.name, 100, LEGAL::NONE | QUICKGEO, p.desc,
             [=] (presmode mode) {
-              if(youtube != "")
-                slide_url(mode, 'y', "YouTube link", youtube);
-              string fname = "fifteen/" + lev + ".lev";
+              if(p.url != "")
+                slide_url(mode, 'y', "YouTube link", p.url);
+              string fname = p.full_filename();
               if(!file_exists(fname)) {
                 slide_error(mode, "file " + fname + " not found");
                 return;
@@ -479,30 +675,15 @@ auto fifteen_hook =
                 mapstream::loadMap(fname);
                 popScreenAll();
                 fullcenter();
-                if(lev == "coiled" || lev == "mobiusband")
-                  View = spin90() * View;
-                if(lev == "mobiusband")
-                  View = MirrorX * View;
+                default_view_for_puzzle(p);
                 }
               }});
         };
-      
-      add("15", "classic", "The original Fifteen puzzle.");
-      add("15+4", "fifteen", "The 15+4 puzzle by Henry Segerman.", "https://www.youtube.com/watch?v=Hc3yfuXiWe0");
-      add("15-4", "sphere11", "The 15-4 puzzle.");
-      add("coiled", "coiled", "Coiled fifteen puzzle by Henry Segerman.", "https://www.youtube.com/watch?v=rfAEgxNEOrQ");
-      add("Möbius band", "mobiusband", "Fifteen puzzle on a Möbius band.");
-      add("Kite-and-dart", "kitedart", "Kite-and-dart puzzle.");
-      add("29", "29", "The 29 puzzle by Henry Segerman.", "https://www.youtube.com/watch?v=EitWHthBY30");
-      add("12", "12", "The 12 puzzle mentioned in the same video by Henry Segerman.", "https://www.youtube.com/watch?v=EitWHthBY30");
-      add("124", "124", "The 124 puzzle mentioned in the same video by Henry Segerman.", "https://www.youtube.com/watch?v=EitWHthBY30");
-      add("60", "60", "The 124 puzzle mentioned in the same video by Henry Segerman.", "https://www.youtube.com/watch?v=EitWHthBY30");
-      add("Continental drift", "sphere19", "Based on the Continental Drift puzzle by Henry Segerman.", "https://www.youtube.com/watch?v=0uQx33KFMO0");
-      
+
       add_end(fifteen_slides);
       }
 
-    cb(XLAT("variants of the fifteen puzzle"), &fifteen_slides[0], 'f');
+    cb(XLAT("Variants of the Fifteen Puzzle"), &fifteen_slides[0], 'f');
     });
 #endif
 

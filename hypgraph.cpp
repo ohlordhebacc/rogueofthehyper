@@ -29,13 +29,17 @@ EX void camrotate(ld& hx, ld& hy) {
   hx = p[0] / p[2], hy = p[1] / p[2];
   }
 
+/** Does the current model support 3D
+ *  Warning: since it depends on get_shader_flags(), you may need to current_display->set_all(0,0) for it to work correctly.
+ */
+
 EX bool non_spatial_model() {
   if(among(pmodel, mdRotatedHyperboles, mdJoukowsky, mdJoukowskyInverted, mdPolygonal, mdPolynomial))
     return true;
   if(pmodel == mdSpiral && euclid)
     return true;
   #if CAP_GL
-  return pmodel && vid.consider_shader_projection && (get_shader_flags() & SF_DIRECT);
+  return pmodel && vid.consider_shader_projection && (get_shader_flags() & SF_DIRECT) && (get_shader_flags() & SF_NONSPATIAL);
   #else
   return false;
   #endif
@@ -63,7 +67,7 @@ EX hyperpoint perspective_to_space(hyperpoint h, ld alpha IS(pconf.alpha), eGeom
   B /= A; C /= A;
   
   ld rootsign = 1;
-  if(gc == gcSphere && pconf.alpha > 1) rootsign = -1;
+  if(gc == gcSphere && alpha > 1) rootsign = -1;
   
   ld hz = B / 2 + rootsign * sqrt(C + B*B/4);
   
@@ -765,6 +769,23 @@ EX void apply_other_model(shiftpoint H_orig, hyperpoint& ret, eModel md) {
       ld r = 0;
       for(int d=0; d<GDIM; d++) r += ret[d]*ret[d];
       for(int d=0; d<GDIM; d++) ret[d] /= r;
+      return;
+      }
+
+    case mdConformalEgg: {
+      H /= H[GDIM] + 1;
+      models::scr_to_ori(H);
+
+      ld mul = pconf.model_transition / 9;
+
+      auto a = H[0], b = H[1];
+      auto A = a*a;
+      auto B = b*b;
+      ret[0] = a + a * (A - 3*B) * mul;
+      ret[1] = b + b * (3*A - B) * mul;
+
+      models::ori_to_scr(ret);
+      if(GDIM == 2) ret[2] = 0; if(MAXMDIM == 4) ret[3] = 1;
       return;
       }
     
@@ -2227,7 +2248,7 @@ EX void adjust_eye(transmatrix& T, cell *c, ld sign) {
   if(isWorm(c->monst) && sl < 3) sl++;
   ld i = cgi.emb->center_z();
   if(sl || vid.eye || i)
-    T = T * lzpush(sign * (cgi.SLEV[sl] - cgi.FLOOR - vid.eye + i));
+    T = T * lzpush(sign * (cgi.RED[sl] - cgi.FLOOR - vid.eye + i));
   }
 
 EX bool shmup_inverted() {
@@ -2252,6 +2273,10 @@ EX vector<transmatrix*> move_affected_matrices(int flag) {
   res.push_back(&cwtV.T);
   if(mapeditor::dt_in()) res.push_back(&mapeditor::cfree_old.T);
   return res;
+  }
+
+EX void adjust_aspeed(ld& aspd, ld R) {
+  aspd *= euclid ? (2+3*R*R) : (1+R+(shmup::on?1:0));
   }
 
 EX void centerpc(ld aspd) {
@@ -2337,7 +2362,7 @@ EX void centerpc(ld aspd) {
     }
   
   else {
-    aspd *= euclid ? (2+3*R*R) : (1+R+(shmup::on?1:0));
+    adjust_aspeed(aspd, R);
 
     if(R < aspd) fix_whichcopy_if_near();
     
@@ -2547,9 +2572,19 @@ EX void enable_flat_model(int val) {
     vid.human_wall_ratio = .7;
     vid.camera = 1;
     vid.depth = 1;
+    vid.creature_scale = 1;
     geom3::apply_always3();
     check_cgi();
+    cgi.require_basics();
     cgi.require_shapes();
+    if(cgi.shFloor.b.empty()) {
+      dynamicval<hrmap*> cm(currentmap);
+      currentmap = new hrmap_hyperbolic;
+      cgi.generate_floorshapes_for(1, currentmap->gamestart());
+      cgi.generate_floorshapes_for(0, currentmap->gamestart()->cmove(0));
+      cgi.finishshape();
+      cgi.extra_vertices();
+      }
     calcparam();
     }
   if(flat_on >= 1 && flat_on + val < 1) {
@@ -3262,12 +3297,12 @@ EX shiftmatrix optimized_shift(const shiftmatrix& T) {
 EX namespace dq {
   EX queue<pair<heptagon*, shiftmatrix>> drawqueue;
   
-  EX unsigned bucketer(const shiftpoint& T) {
+  EX buckethash_t bucketer(const shiftpoint& T) {
     if(cgi.emb->is_euc_in_sl2()) {
       auto T1 = T; optimize_shift(T1);
-      return bucketer(T1.h) + unsigned(floor(T1.shift*81527+.5));
+      return hashmix_to(bucketer(T1.h), hr::bucketer(T1.shift));
       }
-    return bucketer(T.h) + unsigned(floor(T.shift*81527+.5));
+    return hashmix_to(bucketer(T.h), hr::bucketer(T.shift));
     }
 
   EX set<heptagon*> visited;
@@ -3277,10 +3312,10 @@ EX namespace dq {
     drawqueue.emplace(h, T);
     }  
 
-  EX set<unsigned> visited_by_matrix;
+  EX set<buckethash_t> visited_by_matrix;
   EX void enqueue_by_matrix(heptagon *h, const shiftmatrix& T) {
     if(!h) return;
-    unsigned b = bucketer(T * tile_center());
+    buckethash_t b = bucketer(T * tile_center());
     if(visited_by_matrix.count(b)) { return; }
     visited_by_matrix.insert(b);
     drawqueue.emplace(h, T);
@@ -3297,7 +3332,7 @@ EX namespace dq {
 
   EX void enqueue_by_matrix_c(cell *c, const shiftmatrix& T) {
     if(!c) return;
-    unsigned b = bucketer(T * tile_center());
+    buckethash_t b = bucketer(T * tile_center());
     if(visited_by_matrix.count(b)) { return; }
     visited_by_matrix.insert(b);
     drawqueue_c.emplace(c, T);

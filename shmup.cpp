@@ -126,7 +126,7 @@ EX multimap<cell*, monster*> monstersAt;
 typedef multimap<cell*, monster*>::iterator mit;
 #endif
 
-vector<monster*> active, nonvirtual, additional;
+EX vector<monster*> active, nonvirtual, additional;
 
 cell *findbaseAround(shiftpoint p, cell *around, int maxsteps) {
 
@@ -302,7 +302,11 @@ void killMonster(monster* m, eMonster who_kills, flagtype flags = 0) {
     m->inBoat = false;
     }
   m->base->monst = m->type;
+  int pos = isize(flashes);
   killMonster(m->base, who_kills, flags);
+  for(int i=pos; i<isize(flashes); i++)
+    if(flashes[i].where == m->base)
+      flashes[i].angle_matrix = m->at * flashes[i].angle_matrix;
   m->base->monst = m->stk;
   if(multi::cpid >= 0)
     multi::kills[multi::cpid] += tkills() - tk;
@@ -893,12 +897,8 @@ void movePlayer(monster *m, int delta) {
     }
 
 #if CAP_SDL
-  const Uint8 *keystate = SDL12_GetKeyState(NULL);
-  #if CAP_SDL2
-  bool forcetarget = (keystate[SDL_SCANCODE_RSHIFT] | keystate[SDL_SCANCODE_LSHIFT]);
-  #else
-  bool forcetarget = (keystate[SDLK_RSHIFT] | keystate[SDLK_LSHIFT]);
-  #endif
+  const sdl_keystate_type *keystate = SDL12_GetKeyState(NULL);
+  bool forcetarget = (keystate[SDL12(SDLK_RSHIFT, SDL_SCANCODE_RSHIFT)] | keystate[SDL12(SDLK_LSHIFT, SDL_SCANCODE_LSHIFT)]);
   if(((mousepressed && !forcetarget) || facemouse) && delta > 0 && !mouseout() && !stdracing && GDIM == 2) {
     // playermoved = true;
     hyperpoint h = inverse_shift(m->pat, mouseh);
@@ -1024,6 +1024,13 @@ void movePlayer(monster *m, int delta) {
       m->inertia[1] -= sin(godir[cpid]) * coef * playergo[cpid];
       avg_inertia[1] -= sin(godir[cpid]) * coef * playergo[cpid] / 2;
       }
+
+    if(playergo[cpid] > 0 && m->base->land == laAsteroids) {
+      auto fd = flashdata(ticks, rand() % 16, m->base, getcs().haircolor >> 8, 100);
+      fd.angle_matrix = m->at * pispin * xpush(cgi.scalefactor/4) * ypush((rand() % 2 ? 1 : -1) * cgi.scalefactor/10) * spin(randd() * 15._deg);
+      flashes.push_back(fd);
+      }
+
     if(falling) {
       vector<cell*> below;
       manual_celllister mcl;
@@ -3156,13 +3163,17 @@ bool celldrawer::draw_shmup_monster() {
           col = (mirrorcolor(det(view.T) < 0) << 8) | 0xFF;
         else
           col = (minf[m->get_parenttype()].color << 8) | 0xFF;
-        if(getcs().charid >= 10) {
-          queuepoly(at_missile_level(view), cgi.shMissile, col);
-          ShadowV(view, cgi.shMissile);
-          }
-        else if(getcs().charid >= 4) {
+
+        int id = ePlayershape(getcs().charid >> 1);
+
+        if(playershapes[id].is_animal) {
           queuepoly(at_missile_level(view), cgi.shPHead, col);
           ShadowV(view, cgi.shPHead);
+          }
+        else if(!playershapes[id].is_humanoid) {
+           // this means it is a spaceship
+          queuepoly(at_missile_level(view), cgi.shMissile, col);
+          ShadowV(view, cgi.shMissile);
           }
         else if(peace::on) {
           queuepolyat(at_missile_level(view), cgi.shDisk, col, PPR::MISSILE);

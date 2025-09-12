@@ -53,12 +53,15 @@ EX int landMultiplier(eLand l) {
   }
 
 EX bool isCrossroads(eLand l) {
-  return l == laCrossroads || l == laCrossroads2 || l == laCrossroads3 ||
-    l == laCrossroads4 || l == laCrossroads5;
+  return among(l, laCrossroads, laCrossroads2, laCrossroads3, laCrossroads4, laCrossroads5, laCrossroads6, laMasterCrossroads);
+  }
+
+EX bool isCrossroadsNM(eLand l) {
+  return isCrossroads(l) && l != laMasterCrossroads;
   }
 
 EX bool bearsCamelot(eLand l) {
-  return isCrossroads(l) && l != laCrossroads2 && l != laCrossroads5;
+  return isCrossroads(l) && !among(l, laCrossroads2, laCrossroads5, laMasterCrossroads);
   }
 
 EX bool inmirror(const cellwalker& cw) {
@@ -229,6 +232,41 @@ EX int variant_unlock_value() {
   return inv::on ? 75 : 30;
   }
 
+EX bool landAccessibleFromIngame(eLand l) {
+  if(!ls::any_order()) return true;
+
+  back:
+
+  switch(l) {
+    #define LAND(a,b,c,d,e,f,g) case c:
+    #define REQ(x) x return true;
+    #define REQAS(x,y) l = x; goto back;
+    #define GOLD(x) ;
+    #define ITEMS(kind, number) ;
+    #define NEVER ;
+    #define ALWAYS ;
+    #define KILLS(x) ;
+    #define KILL(x, where) ;
+    #define AKILL(x, where) ;
+    #define ORD(a, b) a b
+    #define NUMBER(val, required, description) ;
+    #define COND(x,y) ;
+    #define ITEMS_TOTAL(list, z) ;
+    #define ACCONLY(x) if(!isLandIngame(x)) return false;
+    #define ACCONLY2(x,y) if(!isLandIngame(x) && !isLandIngame(y)) return false;
+    #define ACCONLY3(x,y,z) if(!isLandIngame(x) && !isLandIngame(y) && !isLandIngame(z)) return false;
+    #define ACCONLY4(a,b,c,d) if(!isLandIngame(a) && !isLandIngame(b) && !isLandIngame(c) && !isLandIngame(d)) return false;
+    #define ACCONLY5(a,b,c,d,e) if(!isLandIngame(a) && !isLandIngame(b) && !isLandIngame(c) && !isLandIngame(d) && !isLandIngame(e)) return false;
+    #define ACCONLYF(x) if(!isLandIngame(x)) return false;
+    #define IFINGAME(land, ok, fallback) if(isLandIngame(land)) { ok } else { fallback }
+    #define INMODE(x) ;
+    #include "content.cpp"
+
+    case landtypes: return false;
+    }
+  return false;
+  }
+
 EX bool landUnlocked(eLand l) {
   if(randomPatternsMode) {
     return landUnlockedRPM(l);
@@ -264,6 +302,8 @@ EX bool landUnlocked(eLand l) {
     #define ACCONLY(x)
     #define ACCONLY2(x,y)
     #define ACCONLY3(x,y,z)
+    #define ACCONLY4(a,b,c,d)
+    #define ACCONLY5(a,b,c,d,e)
     #define ACCONLYF(x)
     #define IFINGAME(land, ok, fallback) if(isLandIngame(land)) { ok } else { fallback }
     #define INMODE(x) if(x) return true;
@@ -332,7 +372,9 @@ EX bool voronoi_sea_incompatible(eLand l1, eLand l2) {
   }
 
 EX bool incompatible1(eLand l1, eLand l2) {
-  if(isCrossroads(l1) && isCrossroads(l2)) return true;
+  if(l1 == laMasterCrossroads && !isCrossroads(l2)) return true;
+
+  if(isCrossroadsNM(l1) && isCrossroadsNM(l2)) return true;
   if(l1 == laJungle && l2 == laMotion) return true;
   if(l1 == laMirrorOld && l2 == laMotion) return true;
   if(l1 == laPower && l2 == laWineyard) return true;
@@ -352,11 +394,13 @@ EX bool incompatible1(eLand l1, eLand l2) {
   if(l1 == laWarpSea && l2 == laKraken) return true;
   if(l1 == laPrairie && l2 == laCrossroads3) return true;
   if(l1 == laPrairie && l2 == laCrossroads4) return true;
+  if(l1 == laPrairie && l2 == laCrossroads6) return true;
   if(l1 == laWet && l2 == laDesert) return true;
   if(l1 == laFrog && l2 == laMotion) return true;
   if(l1 == laBull && l2 == laTerracotta) return true;
   if(l1 == laReptile && l2 == laTerracotta) return true;
   if(l1 == laBull && l2 == laDeadCaves) return true;
+  if(l1 == laMinefield && l2 == laZebra) return true;
   if(isElemental(l1) && isElemental(l2)) return true;
   return false;
   }
@@ -373,8 +417,9 @@ EX int elementalKills() {
   }
 
 EX eLand randomElementalLandWeighted() {
-  if(all_unlocked) return pick(laEAir, laEWater, laEEarth, laEFire);
-  int i = hrand(elementalKills());
+  int ek = elementalKills();
+  if(ek == 0 || all_unlocked) return pick(laEAir, laEWater, laEEarth, laEFire);
+  int i = hrand(ek);
   i -= kills[moAirElemental]; if(i<0) return laEAir;
   i -= kills[moWaterElemental]; if(i<0) return laEWater;
   i -= kills[moEarthElemental]; if(i<0) return laEEarth;
@@ -565,7 +610,7 @@ EX eLand getNewLand(eLand old) {
     laDeadCaves, laRedRock, laVariant, laHell, laCocytus, laPower,
     laBull, laTerracotta, laRose, laGraveyard, laHive, laDragon, laTrollheim,
     laWet, laFrog, laEclectic, laCursed, laDice,
-    laCrossroads5,
+    laCrossroads5, laCrossroads6, laMasterCrossroads
     })
     if(landUnlocked(l)) tab[cnt++] = l;    
 
@@ -588,6 +633,7 @@ EX eLand getNewLand(eLand old) {
     {laDesert, laRedRock, 5, 5},
     {laFrog, laReptile, 2, 2}, {laFrog, laSwitch, 2, 2}, {laFrog, laZebra, 2, 2},
     {laEclectic, laStorms, 3, 3}, {laEclectic, laIce, 3, 3}, {laEclectic, laPalace, 3, 3}, {laEclectic, laDeadCaves, 3, 3},
+    {laCursed, laCrossroads6, 1, 1},
     
     {laEFire, laDragon, 5, 5}, {laEWater, laLivefjord, 5, 5}, {laEEarth, laDeadCaves, 5, 5}, {laEAir, laWhirlwind, 5, 5},
     }) {
@@ -735,7 +781,7 @@ EX vector<eLand> land_over = {
   laPrairie, laBull, laTerracotta, laRose,
   laElementalWall, laTrollheim,
   laHell, laCrossroads3, laCocytus, laPower, laCrossroads4,
-  laCrossroads5,
+  laCrossroads5, laCrossroads6, laMasterCrossroads,
   // EXTRA
   laWildWest, laHalloween, laDual, laSnakeNest, laMagnetic, laCA, laAsteroids
   };
@@ -793,7 +839,8 @@ EX bool isLandIngame(eLand l) {
   if(dual::state == 2 && !dual::check_side(l)) return false;
   if((eubinary || sol) && isCyclic(l) && l != specialland) return false;
   if(l == laCamelot && hyperbolic && WDIM == 3) return false;
-  return land_validity(l).flags & lv::appears_in_full;
+  if(!(land_validity(l).flags & lv::appears_in_full)) return false;
+  return landAccessibleFromIngame(l);
   }
 
 EX bool landUnlockedIngame(eLand l) {
@@ -1348,7 +1395,7 @@ EX land_validity_t& land_validity(eLand l) {
     return some0;
   
   // horocycle-based lands, not available in bounded geometries nor in Chaos mode
-  if(l == laWhirlpool || l == laCamelot || l == laCaribbean || l == laTemple || l == laHive) {
+  if(l == laWhirlpool || l == laCamelot || l == laCaribbean || l == laTemple) {
     if(ls::any_chaos()) {
       if(l == laTemple || l == laHive) 
         return special_chaos;
@@ -1357,6 +1404,11 @@ EX land_validity_t& land_validity(eLand l) {
     if(arcm::in() || aperiodic) return not_implemented;
     if(closed_or_bounded) return unbounded_only;
     if(INVERSE) return not_implemented;
+    }
+
+  if(l == laHive) {
+    if(ls::any_chaos()) return special_chaos;
+    if(closed_or_bounded) return unbounded_only;
     }
 
   // this pattern does not work on elliptic and small spheres
@@ -1480,7 +1532,7 @@ EX land_validity_t& land_validity(eLand l) {
   if(l == laCrossroads3 && !stdeucx && !bigsphere)
     return not_enough_space;
 
-  if(among(l, laCrossroads, laCrossroads2, laCrossroads3, laCrossroads5) && weirdhyperbolic && old_daily_id < walls_when)
+  if(among(l, laCrossroads, laCrossroads2, laCrossroads3, laCrossroads5, laCrossroads6, laMasterCrossroads) && weirdhyperbolic && old_daily_id < walls_when)
     return no_great_walls;
 
   // Crossroads IV is great in weird hyperbolic

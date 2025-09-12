@@ -904,7 +904,7 @@ EX string racetimeformat(int t) {
 extern int playercfg;
 
 EX void load_official_track() {
-  fhstream f("officials.data", "rb");
+  fhstream f(find_file("officials.data"), "rb");
   hread(f, f.vernum);
   map<eLand, string> tracks;
   hread(f, tracks);
@@ -918,7 +918,7 @@ EX void load_official_track() {
   #if CAP_EDIT
   mapstream::loadMap(sf);
   #endif
-  cheater = autocheat = 0;
+  cheater = 0;
   official_race = true;
   }
 
@@ -944,6 +944,7 @@ void track_chooser(bool official) {
       multi::players = playercfg;
       specialland = l;
       if(!racing::on) switch_game_mode(rg::racing);
+      if(l == laCrossroads) land_structure = lsNiceWalls;
       if(official) {
         racing::on = false;
         load_official_track();

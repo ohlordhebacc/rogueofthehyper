@@ -1,4 +1,9 @@
+// Nil Rider simulation
+// Copyright (C) 2022-2025 Zeno Rogue, see '../../hyper.cpp' for details
+
 namespace nilrider {
+
+using hr::lerp;
 
 ld timestamp::energy_in_squares() { return vel * vel / (2 * gravity); }
 
@@ -206,7 +211,7 @@ bool timestamp::tick(level *lev, ld time_left) {
 
     vel = hypot_d(3, flyvel);
 
-    if(check_crashes_rec(lev, owhere, oflyvel, time_left)) return false;
+    if(check_crashes_rec(lev, lev, owhere, oflyvel, time_left)) return false;
     }
 
   circpos += circvel * time_left;
@@ -214,7 +219,7 @@ bool timestamp::tick(level *lev, ld time_left) {
   return true;
   }
 
-bool timestamp::check_crashes(level* lev, hyperpoint owhere, hyperpoint oflyvel, ld time_left) {
+bool timestamp::check_crashes(level *mainlev, level* lev, hyperpoint owhere, hyperpoint oflyvel, ld time_left) {
   ld oz = lev->surface(owhere);
   ld z = lev->surface(where);
 
@@ -277,14 +282,14 @@ bool timestamp::check_crashes(level* lev, hyperpoint owhere, hyperpoint oflyvel,
       }
 
     if(part == 1) return false;
-    return !tick(lev, time_left * (1 - part));
+    return !tick(mainlev, time_left * (1 - part));
     }
   return false;
   }
 
-bool timestamp::check_crashes_rec(level* l, hyperpoint owhere, hyperpoint oflyvel, ld time_left) {
-  if(check_crashes(l, owhere, oflyvel, time_left)) return true;
-  for(auto s: l->sublevels) if(check_crashes(s, owhere, oflyvel, time_left)) return true;
+bool timestamp::check_crashes_rec(level *ml, level* l, hyperpoint owhere, hyperpoint oflyvel, ld time_left) {
+  if(check_crashes(ml, l, owhere, oflyvel, time_left)) return true;
+  for(auto s: l->sublevels) if(check_crashes(ml, s, owhere, oflyvel, time_left)) return true;
   return false;
   }
 

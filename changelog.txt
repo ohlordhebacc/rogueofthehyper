@@ -5422,3 +5422,109 @@ Bug fixes:
 - incorrect scrolling when clicking the mousewheel from outside the Poincare disk
 - 'joystick initialization' moved from 'old-style joystick configuration' to 'keyboards & joysticks'
 - loading a map from the drawing tool sometimes caused a crash
+
+2025-05-11 12:06 Update 13.0y
+Technical: (hopefully these do not break anything -- in case of any problems, please report and/or use the 'previous' branch on Steam)
+- simplified the implementation of floor shapes/walls etc
+- updated the Linux runtime on Steam
+
+New features:
+- nicer Goldberg-Coxeter tile shapes, also the style can be changed based on several possible rules
+- tetrahedral-octahedral honeycomb
+
+Bug fixes:
+- fix the generation of Crossroads official track
+- fixed the returning of tortoises while you have Flash/Storms
+- fix the 'x' key not working in keyboard/joystick control
+- disabled Red Raiders from shmup in Eclectic City
+- no longer possible to pick up items while dead in shmup
+- more stable "strict tree rules" (chosen options are automatically taken into account, do not crash, and do not slowdown due to too large generation range)
+- fix many other crashes
+- better shift+ctrl scaling in Euclidean std projection
+- fixed a bug with rendering 45-degree-rotated Klein bottles
+- fixed the single-land mode on fractals
+- use two-letter labels instead of excessive primes in the fundamental domain display
+- fixed a bug with Cellular Automata crashing after map reloaded
+
+2025-05-26 09:17 Update 13.0z:
+Mostly bugfixes:
+- fixed some rock level rendering issues
+- fixed the rendering of explosive barrels (and crates)
+- fixed the bug with too large floors in pure Euclidean square
+- inventory icons: fixed the wrong size used, fixed the crash bug when rendering the hypersian rug in some settings
+- shmup: particle effects in shmup now appear from the correct locaton, fuel particles in space rocks
+- Racing official track no longer turns the "god mode" off
+- fixed the Yendor/Caribbean markers in some projections
+
+2025-08-06 09:28 Update 13.1:
+- two new crossroads variants
+- translations updated
+- fixes in the peace/exploration menu
+- fixed the display of 'faces per vertex'
+- improvements to high contrast (by @jlm)
+- Caribbean spill in Voronoi should be fixed
+- launch the connection debugger on connection errors, also clearer error messages and horotiling.tes actually loads again
+- fixed the distance display in the expansion mode
+- fixed file dialog closing incorrectly
+- fixed Orb of Sword blocking strong wind
+https://zenorogue.blogspot.com/2025/08/hyperrogue-131.html
+
+2025-08-17 21:03 Update 13.1a:
+- improved selection of player shape: four new shapes, save/load customized characters, the character is centered correctly
+- fixed slaying + discord graphics
+- other active orbs now extend the duration of Orb of Recall
+- fixed CR5 and MCR not appearing in PTM
+- alt unlock condition for CR6
+- fixed the floor graphics in dual tilings
+- finding the music file in some installations should be fixed
+
+2025-08-17 23:00 Update 13.1b:
+- fixed Orb of Recall appearing incorrectly
+- finding geodesic and paper model data in some installations should be fixed
+
+2025-08-19 11:06 Update 13.1c:
+- fixed the player Ratlings not having tails
+- fixed the floor graphics in some tilings
+- fixed Clearing in bitruncated {8,3}
+- if a land is only accessible from ones that aren't in-game, it's not in-game
+- the simplified pattern cheat is now disabled when you stop cheating
+- more interesting dice in alt tilings
+- fixed generalized Great Walls (which tended to stop generating from some point)
+- fix unlock_all for land selection
+- Hive no longer requires horocycle support to be generated in other tilings
+- use 'small' generation for arbitrary and Archimedean spherical tilings
+- also fixed a crash in spherical arbitrary tilings
+- made ivy branches look better in alt tilings (they can now adjust to the distances between tiles)
+- fixed the default sizes of stuff in Archimedean pure tilings
+- added official races to the GitHub repo
+- the Orb of Safety in the Haunted Woods forbidden instead of dangerous (thanks to josephcsible)
+- the Hyperstone Quest cheat gives only the relevant treasures (thanks to josephcsible)
+- a shading cheat (thanks to josephcsible)
+- only messages about lands that are in-game are shown (thanks to josephcsible)
+
+2025-08-29 08:44 Update 13.1d:
+- fixed a potential crash when reseting OpenGL (might help people who could not run the game?)
+- fixed new humanoid player shapes not displaying the crossbow, and the missiles for new character shapes
+- fixed a bug when saving colortables, causing a crash when loading them (thanks to josephcsible)
+- drawing tool now actually does enable the cheat mode
+- fix pushing an Animated Die saying "You push the Unhappy Die." (thanks to josephcsible)
+- fixed some menus in VR, and the bugh with the walking mode hotkey; added 'build on walls' to the portal construction menu so it is easier to create portals in the air
+
+2025-09-09 20:35 Update 13.1e:
+- conformal egg model (like in the game Innards)
+- nicer help for number dialogs
+- fixed a bug with some projections not using 3D (when they were able to) or using 3D (when they were not able to)
+- azimuthal equidistant faster now (implemented on GPU)
+- fixed some bugs related to changing the 3D style
+- fixed the disconnect between scrolling speed and movement speed in Euclidean mode
+- fixed onscreen keyboard (in SDL2)
+- fixed some crashes thanks to josephcsible
+- for the expression parser, added some variables related to keyboard/mouse states
+- fixed drawing horocycles using parabolic movement
+- Warn before collecting potentially-dangerous orbs (thanks to josephcsible)
+- fix crash when the Elemental Planes is unlocked with 0 kills (thanks to josephcsible)
+- stop Outlaws from shooting themselves when Orb of Discord is active (thanks to josephcsible)
+- remove incorrect message about saving in Archimedean (thanks to josephcsible)
+- mark Minefield and Zebra as incompatible (thanks to josephcsible)
+- fixed missing sound files in the itchio versions
+- Android version updated

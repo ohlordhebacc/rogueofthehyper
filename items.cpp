@@ -101,7 +101,9 @@ EX bool collectItem(cell *c2, cell *last, bool telekinesis IS(false)) {
 
   bool dopickup = true;
   bool had_choice = false;
-  
+
+  if(shmup::on && !canmove) return false;
+
   if(cannotPickupItem(c2, telekinesis))
     return false;
 
@@ -522,6 +524,7 @@ EX void updateHi(eItem it, int v) {
 EX void gainItem(eItem it) {
   int g = gold();
   bool lhu = landUnlocked(laHell);
+  bool rc = rlyehComplete();
   items[it]++; if(it != itLotus) updateHi(it, items[it]);
   if(it == itRevolver && items[it] > 6) items[it] = 6;
   achievement_collection(it);
@@ -577,6 +580,8 @@ EX void gainItem(eItem it) {
       addMessage(XLAT("Abandon all hope, the gates of Hell are opened!"));
       addMessage(XLAT("And the Orbs of Yendor await!"));
       }
+    if(rlyehComplete() && !rc)
+      addMessage(XLAT("Cthulhu's tentacles reach out upon the world..."));
     }
   }
 

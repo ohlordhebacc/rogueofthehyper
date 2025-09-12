@@ -626,7 +626,7 @@ EX always_false in;
           }
         }
       IMAGESAVE(s, (filename + "-floors.png").c_str());
-      SDL_FreeSurface(s);
+      SDL_DestroySurface(s);
       }
     #endif
     #endif
@@ -641,7 +641,7 @@ EX }
 void IMAGESAVE(SDL_Surface *s, const char *fname) {
   SDL_Surface *s2 = SDL_PNGFormatAlpha(s);
   SDL_SavePNG(s2, fname);
-  if(s != s2) SDL_FreeSurface(s2);
+  if(s != s2) SDL_DestroySurface(s2);
   }
 #endif
 
@@ -741,7 +741,7 @@ EX void postprocess(string fname, SDL_Surface *sdark, SDL_Surface *sbright) {
       }
     }
   output(sout, fname);
-  SDL_FreeSurface(sout);
+  SDL_DestroySurface(sout);
   }
 #endif
 
@@ -1321,9 +1321,9 @@ EX void apply() {
       reflect_view();
       rotate_view(rot_inverse(movement_angle.get()));
       if(GDIM == 2)
-        View = bt::parabolic(parabolic_length * t / period) * View;
+        rotate_view(bt::parabolic(parabolic_length * t / period));
       else
-        View = bt::parabolic3(parabolic_length * t / period, 0) * View;
+        rotate_view(bt::parabolic3(parabolic_length * t / period, 0));
       rotate_view(movement_angle.get());
       moved();
       break;
@@ -1332,7 +1332,7 @@ EX void apply() {
       rotate_view(rot_inverse(movement_angle.get()));
       centerover = rotation_center;
       ld alpha = circle_spins * TAU * ticks / period;
-      View = spin(-cos_auto(circle_radius)*alpha) * xpush(circle_radius) * spin(alpha) * rotation_center_View;
+      rotate_view(spin(-cos_auto(circle_radius)*alpha) * xpush(circle_radius) * spin(alpha) * rotation_center_View * inverse(View));
       rotate_view(movement_angle.get());
       moved();
       break;
@@ -1782,6 +1782,7 @@ auto animhook = addHook(hooks_frame, 100, display_animation)
     param_f(env_volcano, "env_volcano");
     param_b(wallopt, "wallopt");
     param_b(clearup, "anim_clearup");
+    param_b(env_shmup, "anim_shmup");
     param_color(circle_display_color, "circle_display_color", true);
     param_enum(anims::ma, parameter_names("ma", "movement_animation"), maNone)
     -> editable({{"none", ""}, {"translation", ""}, {"rotation", ""}, {"circle", ""}, {"parabolic", ""}, {"translation+rotation", ""}}, "movement animation", 'a')

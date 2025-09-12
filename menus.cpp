@@ -344,10 +344,12 @@ EX void showCreative() {
   dialog::addItem(XLAT("drawing tool"), 'd');
   dialog::add_action([] {
     dialog::cheat_if_confirmed([] {
+      cheater++;
       mapeditor::drawing_tool = true;
       mapeditor::intexture = false;
       pushScreen(mapeditor::showDrawEditor);
       mapeditor::initdraw(cwt.at);
+      addMessage(XLAT("You activate your imagination powers!"));
       });
     });
 #endif
@@ -549,6 +551,7 @@ EX void show_custom() {
   dialog::display();
   }
 
+#ifndef RVCOL
 EX void mode_higlights() {
   cmode = sm::NOSCR;
   gamescreen();
@@ -714,7 +717,8 @@ EX void mode_higlights() {
   dialog::addBreak(100);
   dialog::addBack();
   dialog::display();
-  }  
+  }
+#endif
 
 EX eLandStructure default_land_structure() {
   if(closed_or_bounded) return lsSingle;
@@ -826,8 +830,10 @@ EX void showChangeMode() {
   show_achievement_eligibility();
 
   dialog::addBreak(50);
+  #ifndef RVCOL
   dialog::addItem(XLAT("highlights & achievements"), 'h');
   dialog::add_action_push(mode_higlights);
+  #endif
   dialog::addItem(XLAT("custom mode manager"), 'm');
   dialog::add_action(prepare_custom);
   dialog::addBack();
@@ -1193,7 +1199,8 @@ EX named_functionality get_o_key() {
   if(isize(res) == 1) return res[0];
   
   return named_dialog(res[0].first + "/...", [res] {
-    emptyscreen();
+    cmode = sm::VR_MENU | sm::NOSCR;
+    gamescreen();
     dialog::init();
     char id = 'o';
     for(auto& r: res) {

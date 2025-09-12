@@ -13,8 +13,8 @@
 #define _HYPER_H_
 
 // version numbers
-#define VER "13.0x"
-#define VERNUM_HEX 0xAA18
+#define VER "13.1e"
+#define VERNUM_HEX 0xAA25
 
 #include "sysconfig.h"
 
@@ -177,7 +177,7 @@ void addMessage(string s, char spamtype = 0);
 // Dry Forest burning, heat transfer, etc. are performed on the whole universe
 #define doall (closed_or_bounded)
 
-#define sphere_narcm (sphere && !arcm::in())
+#define sphere_narcm (sphere && !arcm::in() && !arb::in())
 
 #define a4 (S3 == 4)
 #define a45 (S3 == 4 && S7 == 5)
@@ -469,6 +469,10 @@ extern videopar vid;
 #define R200 (big_unlock ? 800 : 200)
 // Crossroads V
 #define R300 (big_unlock ? 1200 : 300)
+// Thematic Crossroads
+#define R400 (big_unlock ? 1600 : 400)
+// Master Crossroads
+#define R500 (big_unlock ? 2000 : 500)
 // kill types for Dragon Chasms
 #define R20 (big_unlock ? 30 : 20)
 // kill count for Graveyard/Hive
@@ -687,20 +691,10 @@ static constexpr int MAXPLAYER = 7;
 enum class PPR {
   ZERO, EUCLIDEAN_SKY, OUTCIRCLE, MOVESTAR,
   MINUSINF,
-  BELOWBOTTOMm,
-  BELOWBOTTOM,
-  BELOWBOTTOMp,
-  BELOWBOTTOM_FALLANIM,
-  LAKEBOTTOM, HELLSPIKE,
-  INLAKEWALLm, INLAKEWALL, INLAKEWALLp,
-  INLAKEWALL_FALLANIM,
-  BSHALLOW, SHALLOW, ASHALLOW,
-  SUBLAKELEV, LAKELEV, BOATLEV, BOATLEV2, BOATLEV3,
-  LAKEWALLm, LAKEWALL, LAKEWALLp,
-  LAKEWALL_FALLANIM,
-  FLOOR_TOWER,
-  FLOOR,
-  FLOOR_DRAGON,
+  DEEP_ESCHER, DEEP_SIDE, DEEP_FALLANIM, DEEP_TOP, HELLSPIKE,
+  SHALLOW_ESCHER, SHALLOW_SIDE, SHALLOW_FALLANIM, SHALLOW_TOP,
+  WATERLEVEL_ESCHER, WATERLEVEL_SIDE, WATERLEVEL_TOP, BOATLEV, BOATLEV2, BOATLEV3,
+  FLOOR_ESCHER, FLOOR_SIDE, FLOOR_FALLANIM, FLOOR_TOWER, FLOOR, FLOOR_DRAGON,
   FLOORa, FLOORb, FLOORc, FLOORd,
   LIZEYE,
   BFLOOR,
@@ -708,17 +702,16 @@ enum class PPR {
   WALLSHADOW,
   STRUCT0, STRUCT1, STRUCT2, STRUCT3,
   THORNS, WALL,
-  REDWALLm, REDWALLs, REDWALLp, REDWALL,
-  REDWALLm2, REDWALLs2, REDWALLp2, REDWALLt2,
-  REDWALLm3, REDWALLs3, REDWALLp3, REDWALLt3,
+  RED1_ESCHER, RED1_SIDE, RED1_TOP,
+  RED2_ESCHER, RED2_SIDE, RED2_TOP,
+  RED3_ESCHER, RED3_SIDE, RED3_TOP,
   HEPTAMARK,
   ITEM_BELOW,
   ITEM, ITEMa, ITEMb,
   BIGSTATUE,
 
-  WALL3m, WALL3s, WALL3p, WALL3, WALL3A,
+  WALL_ESCHER, WALL_SIDE, WALL_TOP, WALL_DECO,
 
-// WALL3m, WALL3s, WALL3p, WALL3, WALL3A,
   HIDDEN, GIANTSHADOW,
   TENTACLE0, TENTACLE1,
   ONTENTACLE, ONTENTACLE_EYES, ONTENTACLE_EYES2,
@@ -790,6 +783,16 @@ template<class T, class... U> void callhooks(const hookset<T>& h, U&&... args) {
 
 template<class T, class V, class... U> V callhandlers(V zero, const hookset<T>& h, U&&... args) {
   return h.callhandlers(zero, static_cast<U&&>(args)...);
+  }
+
+void popScreen();
+
+template<class T, class U> void hook_in_subscreen(hookset<T>& m, int prio, U&& hook) {
+  int v = m.add(prio, static_cast<U&&>(hook));
+  pushScreen([&m, v] {
+    delHook(m, v);
+    popScreen();
+    });
   }
 
 string XLAT(string);
@@ -933,8 +936,8 @@ template<class T> ld binsearch(ld dmin, ld dmax, const T& f, int iterations = 20
   return dmin;
   } 
 
-  static constexpr int max_vec = (1<<14);
-  extern bool needConfirmationEvenIfSaved();
+static constexpr int max_vec = (1<<14);
+extern bool needConfirmationEvenIfSaved();
 
 typedef unsigned long long flagtype;
 #define Flag(i) (flagtype(1ull<<i))

@@ -1,3 +1,9 @@
+// Nil Rider
+// Copyright (C) 2022-2025 Zeno Rogue, see '../../hyper.cpp' for details
+
+// compile with: ./mymake -O3 -rv rogueviz/nilrider/nilrider.cpp and then launch with -nilrider
+// add -DNILRIDER for standalone Nil Rider
+
 #if NILRIDER
 #define CUSTOM_CAPTION "Nil Rider 2.0"
 #define MAXMDIM 4
@@ -178,7 +184,7 @@ bool turn(int delta) {
             if(g.achievement_name != "") rogueviz::rv_achievement(g.achievement_name);
             if(g.leaderboard_name != "") {
               auto res = curlev->current_score[gid];
-              rogueviz::rv_leaderboard(g.leaderboard_name, abs(res) * 1000);
+              rogueviz::rv_leaderboard((planning_mode ? "Nil Rider planning: " : "Nil Rider manual: ") + g.leaderboard_name, abs(res) * 1000, -1, rvlc::ms);
               }
             }
           gid++;
@@ -225,9 +231,10 @@ void toggle_replay() {
 
 void run() {
   cmode = sm::PANNING | sm::NORMAL;
+  emptyscreen();
   clearMessages();
   dialog::init();
-  if(view_replay && !paused) {
+  if(view_replay && !paused && !isize(curlev->history)) {
     int ttick = gmod(ticks - simulation_start_tick, isize(curlev->history));
     curlev->current = curlev->history[ttick];  
     curlev->current.centerview(curlev);
@@ -276,6 +283,7 @@ void run() {
   show_button(PSEUDOKEY_MENU, "menu");
 
   dialog::add_key_action(PSEUDOKEY_MENU, [] {
+    if(tour::on) { tour::next_slide(); return; }
     if(curlev->current.timer) paused = true;
     game_keys_scroll = true;
     pushScreen(main_menu);
@@ -297,11 +305,17 @@ void run() {
     }
 
   int* t = multi::scfg_default.keyaction;
-  for(int i=1; i<512; i++) {
+  for(int i=1; i<multi::SCANCODES; i++) {
     auto& ka = dialog::key_actions;
-    if(t[i] == 16+nrPause) ka[i] = ka[PSEUDOKEY_PAUSE];
-    if(t[i] == 16+nrViewSimulation) ka[i] = ka[PSEUDOKEY_SIM];
-    if(t[i] == 16+nrMenu) ka[i] = ka[PSEUDOKEY_MENU];
+    auto match = [&] (int nr, int pseudokey) {
+      if(t[i] == 16+nr) {
+        auto key = SDL12(i, SDL_GetKeyFromScancode(SDL_Scancode(i)/*, 0, true*/));
+        ka[key] = ka[pseudokey];
+        }
+      };
+    match(nrPause, PSEUDOKEY_PAUSE);
+    match(nrViewSimulation, PSEUDOKEY_SIM);
+    match(nrMenu, PSEUDOKEY_MENU);
     }
   
   keyhandler = [] (int sym, int uni) {
@@ -326,6 +340,7 @@ string fname = "horizontal.nrl";
 ld total_stars = 0;
 
 void pick_level() {
+  cmode = sm::VR_MENU | sm::NOSCR; gamescreen();
   dialog::init(XLAT("select the track"), 0xC0C0FFFF, 150, 100);
   ld cur_stars = 0;
   for(auto l: all_levels) {
@@ -339,10 +354,10 @@ void pick_level() {
         auto plan = l->records[1][gid];
         if(plan) score_here += l->goals[gid].sa(plan);
         }
-      cur_stars += score_here;
       }
+    cur_stars += score_here;
 
-    if(l->stars_needed > total_stars) {
+    if(l->stars_needed > total_stars && !unlock_all) {
       dialog::addSelItem(l->name, "stars needed: " + its(l->stars_needed), l->hotkey);
       }
     else {
@@ -372,12 +387,13 @@ void pick_level() {
         }
       });
     });
-  dialog::addBack();
+  dialog::addItem(XLAT("play this track"), SDLK_ESCAPE);
   dialog::display();
   }
 
 void layer_selection_screen() {
   poly_outline = 0xFF;
+  cmode = sm::VR_MENU | sm::NOSCR; gamescreen();
   dialog::init(XLAT("layer selection"), 0xC0C0FFFF, 150, 100);
   dialog::addBreak(50);
   auto layers = curlev->gen_layer_list();
@@ -392,6 +408,7 @@ void layer_selection_screen() {
 
 void pick_game() {
   clearMessages();
+  cmode = sm::VR_MENU | sm::NOSCR; gamescreen();
   dialog::init();
   poly_outline = 0xFF;
   dialog::addBigItem(curlev->name, 't');
@@ -442,6 +459,7 @@ void nil_set_perspective() {
   }
 
 void nil_projection() {
+  cmode = sm::VR_MENU | sm::NOSCR; gamescreen();
   dialog::init(XLAT("projection of Nil"), 0xC0C0FFFF, 150, 100);
   dialog::addBoolItem("geodesics", pmodel == mdGeodesic, 'g');
   dialog::add_action([] { popScreen(); nil_set_geodesic(); });
@@ -456,6 +474,7 @@ void nil_projection() {
   }
 
 void settings() {
+  cmode = sm::VR_MENU | sm::NOSCR; gamescreen();
   dialog::init(XLAT("settings"), 0xC0C0FFFF, 150, 100);
   add_edit(aimspeed_key_x);
   add_edit(aimspeed_key_y);
@@ -512,6 +531,7 @@ template<class T, class U, class V> void replays_of_type(vector<T>& v, const U& 
     dialog::addItem(r.name, 'a');
     dialog::add_action([&v, i, loader, ghost_loader] {
       pushScreen([&v, i, loader, ghost_loader] {
+        cmode = sm::VR_MENU | sm::NOSCR; gamescreen();
         dialog::init(XLAT(planning_mode ? "saved plan" : "replay"), 0xC0C0FFFF, 150, 100);
         dialog::addInfo(v[i].name);
 
@@ -547,6 +567,7 @@ template<class T, class U, class V> void replays_of_type(vector<T>& v, const U& 
 #if CAP_SAVE
 
 void replays() {
+  cmode = sm::VR_MENU | sm::NOSCR; gamescreen();
   dialog::init(XLAT(planning_mode ? "saved plans" : "replays"), 0xC0C0FFFF, 150, 100);
   if(!planning_mode) replays_of_type(curlev->manual_replays, [] (manual_replay& r) {
     view_replay = false;
@@ -645,6 +666,7 @@ void help_instruments() {
 void main_menu() {
   clearMessages();
   poly_outline = 0xFF;
+  cmode = sm::VR_MENU | sm::NOSCR; gamescreen();
   dialog::init(XLAT("Nil Rider"), 0xC0C0FFFF, 150, 100);
 
   dialog::addItem("continue", 'c');
@@ -720,16 +742,11 @@ bool on;
 local_parameter_set lps_nilrider("nilrider:");
 
 void nilrider_keys() {
-  #if CAP_SDL2
-  multi::change_default_key(lps_nilrider, SDL_SCANCODE_LCTRL, 16 + nrFineControl);
-  #else
-  multi::change_default_key(lps_nilrider, SDLK_LCTRL, 16 + nrFineControl);
-  #endif
-
-  multi::change_default_key(lps_nilrider, 'p', 16 + nrPause);
-  multi::change_default_key(lps_nilrider, 'b', 16 + nrReverseTime);
-  multi::change_default_key(lps_nilrider, 'r', 16 + nrViewSimulation);
-  multi::change_default_key(lps_nilrider, 'v', 16 + nrMenu);
+  multi::change_default_key(lps_nilrider, SDL12(SDLK_LCTRL, SDL_SCANCODE_LCTRL), 16 + nrFineControl);
+  multi::change_default_key(lps_nilrider, SDL12('p', SDL_SCANCODE_P), 16 + nrPause);
+  multi::change_default_key(lps_nilrider, SDL12('b', SDL_SCANCODE_B), 16 + nrReverseTime);
+  multi::change_default_key(lps_nilrider, SDL12('r', SDL_SCANCODE_R), 16 + nrViewSimulation);
+  multi::change_default_key(lps_nilrider, SDL12('v', SDL_SCANCODE_V), 16 + nrMenu);
   }
 
 bool nilrider_music(eLand& l) {
@@ -756,6 +773,7 @@ void default_settings() {
   lps_add(lps_nilrider, logfog, 1);
   lps_add(lps_nilrider, ccolor::which, &ccolor::plain);
   lps_add(lps_nilrider, ccolor::rwalls, 0);
+  lps_add(lps_nilrider, game_keys_scroll);
 
   #if CAP_VR
   lps_add(lps_nilrider, vrhr::hsm, vrhr::eHeadset::reference);
@@ -834,6 +852,20 @@ void initialize_all() {
   poly_outline = 0xFF;
   pushScreen(pick_game);
   start_game();
+  }
+
+void initialize_for_slide(tour::presmode mode) {
+  setWhiteCanvas(mode, [] { set_geometry(gNil); set_variation(eVariation::pure); });
+  if(mode == tour::pmStart) {
+    tour::slide_backup(pmodel, mdGeodesic);
+    tour::slide_backup(nisot::geodesic_movement, true);
+    lps_enable(&lps_nilrider);
+    tour::slide_backup(poly_outline, 0xFF);
+    stop_game();
+    initialize();
+    start_game();
+    }
+  if(mode == tour::pmStop) lps_enable(nullptr);
   }
 
 auto celldemo = arg::add3("-unilcycle", initialize) + arg::add3("-unilplan", [] { planning_mode = true; }) + arg::add3("-viewsim", [] { view_replay = true; })

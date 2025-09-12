@@ -84,8 +84,7 @@ EX namespace sn {
   
   void tabled_inverses::load() {
     if(loaded) return;
-    FILE *f = fopen(fname.c_str(), "rb");
-    if(!f) f = fopen((rsrcdir + fname).c_str(), "rb");
+    FILE *f = fopen(find_file(fname).c_str(), "rb");
     if(!f) { addMessage(XLAT("geodesic table missing")); pmodel = mdPerspective; return; }
     hr::ignore(fread(&PRECX, 4, 1, f));
     hr::ignore(fread(&PRECY, 4, 1, f));
@@ -1696,6 +1695,11 @@ EX namespace hybrid {
     });
   
   EX vector<pair<int, cell*>> gen_sample_list() {
+    if(geometry == gOctTet3) {
+      auto c = centerover;
+      if(currentmap->shvid(c)) c = c->cmove(0);
+      return {make_pair(0, c), make_pair(8, c->cmove(4)), make_pair(12, c->cmove(0)), make_pair(16, nullptr)};
+      }
     if(!mhybrid && WDIM != 2 && PURE)
       return {make_pair(0, centerover), make_pair(centerover->type, nullptr)};
     vector<pair<int, cell*>> result;

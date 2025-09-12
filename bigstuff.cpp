@@ -134,8 +134,11 @@ EX cell *findcompass(cell *c) {
   int d = compassDist(c);
   if(among(d, NOCOMPASS, ALTDIST_BOUNDARY, ALTDIST_UNKNOWN, ALTDIST_ERROR)) return NULL;
   auto w = whichCompass(c);
+
+  auto gc = c;
   
   while(inscreenrange(c)) {
+    gc = c;
     if(!eubinary && !sphere && !quotient)
       currentmap->extend_altmap(c->master);
     forCellEx(c2, c) if(w == whichCompass(c2) && compassDist(c2) < d) {
@@ -152,7 +155,7 @@ EX cell *findcompass(cell *c) {
     nextk: ;
     }
   
-  return c;
+  return gc;
   }
 
 EX bool grailWasFound(cell *c) {
@@ -539,7 +542,7 @@ EX void generateTreasureIsland(cell *c) {
     if(c->wall == waCTree) return;
     }
   vector<cell*> ctab;
-  int qlo, qhi;
+  int qlo = 0, qhi = 0; /* set to 0 to silence warning */
   for(int i=0; i<c->type; i++) {
     cell *c2 = createMov(c, i);
     if(!eubinary) currentmap->extend_altmap(c2->master);
@@ -1561,6 +1564,8 @@ EX int wallchance(cell *c, bool deepOcean) {
     l == laCrossroads2 ? 10000 : 
     l == laCrossroads5 ? 10000 : 
     l == laCrossroads4 ? 5000 :
+    l == laCrossroads6 ? 5000 :
+    l == laMasterCrossroads ? 10000 :
     (l == laMirror && !yendor::generating) ? 2500 :
     tactic::on ? 0 :
     racing::on ? 0 :
@@ -1756,6 +1761,20 @@ EX void build_walls(cell *c, cell *from) {
         return;
         }
 
+      if(specialland == laCrossroads6 && hrand(I10000) < 5000) {
+        build_barrier_good(c, laCrossroads6);
+        return;
+        }
+
+      if(specialland == laMasterCrossroads && c->land == laMasterCrossroads && good_for_wall(c) && hrand(10000) < 100)
+        buildBarrierNowall(c, laCrossroads4);
+
+      if(specialland == laMasterCrossroads && hrand(10000) < 1500 && !among(c->land, laCrossroads4, laCrossroads2, laCrossroads5))
+        build_barrier_good(c, c->land == laMasterCrossroads ? pick(laCrossroads, laCrossroads2, laCrossroads3, laCrossroads5, laCrossroads6) : laMasterCrossroads);
+
+      if(specialland == laMasterCrossroads && hrand(10000) < 1500 && c->land == laCrossroads4)
+        buildBarrierNowall(c, laMasterCrossroads);
+
       if(specialland == laCrossroads3) {
         build_barrier_good(c, laCrossroads3);
         return;
@@ -1826,6 +1845,9 @@ EX void build_walls(cell *c, cell *from) {
   
   else if(good_for_wall(c) && ls::any_wall() && c->land == laCrossroads4 && hrand(10000) < 7000 && c->land && !c->master->alt && !tactic::on && !racing::on && 
     buildBarrierNowall(c, getNewLand(laCrossroads4))) ;
+
+  else if(good_for_wall(c) && ls::any_wall() && c->land == laMasterCrossroads && hrand(10000) < 500 && c->land && !c->master->alt && !tactic::on && !racing::on &&
+    landUnlockedIngame(laCrossroads4) && buildBarrierNowall(c, laCrossroads4)) ;
 
   else if(good_for_wall(c) && ls::any_wall() && hrand(I10000) < 20 && !generatingEquidistant && !yendor::on && !tactic::on && !racing::on && !isCrossroads(c->land) &&
     landUnlockedIngame(laCrossroads4) && !weirdhyperbolic && !c->master->alt && c->bardir != NOBARRIERS &&
@@ -2229,14 +2251,6 @@ EX void moreBigStuff(cell *c) {
   
   if(quotient) return;
 
-  extend_alt(c, laCaribbean, laCaribbean, false);
-  if(c->land == laCaribbean) {
-    if(have_alt(c) && celldistAlt(c) <= 0)
-      generateTreasureIsland(c);
-    else
-      c->wall = waSea;
-    }
-
   if(ls::voronoi_structure()) {
     auto p = get_voronoi_winner(c);
     auto ph = p.first;
@@ -2275,6 +2289,14 @@ EX void moreBigStuff(cell *c) {
       setland(c, laCrossroads);
     }
   
+  extend_alt(c, laCaribbean, laCaribbean, false);
+  if(c->land == laCaribbean) {
+    if(have_alt(c) && celldistAlt(c) <= 0)
+      generateTreasureIsland(c);
+    else
+      c->wall = waSea;
+    }
+
   if(!ls::hv_structure()) extend_alt(c, laPalace, laPalace, false, PRADIUS1);
 
   extend_alt(c, laCanvas, laCanvas);

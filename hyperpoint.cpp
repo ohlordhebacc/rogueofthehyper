@@ -340,10 +340,48 @@ EX ld area_auto(ld r) {
     }
   }
 
+EX ld inverse_area_auto(ld vol) {
+  switch(cgclass) {
+    case gcEuclid: return sqrt(vol / M_PI);
+    case gcHyperbolic: return acosh_clamp(vol / TAU + 1);
+    case gcSphere: return acos_clamp(1 - vol / TAU);
+    default: return 0;
+    }
+  }
+
+EX ld inverse_volume_euc(ld vol) {
+  return pow(vol * 3/4/M_PI, 1/3.);
+  }
+
+EX ld inverse_volume_auto(ld vol) {
+  switch(cgclass) {
+    case gcEuclid: return inverse_volume_euc(vol);
+    case gcHyperbolic: {
+      ld r = vol < 10 ? inverse_volume_euc(vol) : asinh(vol/M_PI)/2;
+      if(r>0) for(int i=0; i<5; i++) r += (vol - volume_auto(r)) / (4 * M_PI * pow(sinh(r), 2));
+      return r;
+      }
+    case gcSphere: {
+      if(vol <= 0) return 0;
+      if(vol >= TAU * M_PI) return M_PI;
+      ld r = vol < M_PI ? inverse_volume_euc(vol) : vol > TAU * M_PI - M_PI ? M_PI - inverse_volume_euc(TAU*M_PI-vol) : vol / TAU;
+      if(sin(r)) for(int i=0; i<5; i++) r += (vol - volume_auto(r)) / (4 * M_PI * pow(sin(r), 2));
+      return r;
+      }
+    default: return 0;
+    }
+  }
+
 /** \brief volume in 3D, area in 2D */
 EX ld wvolarea_auto(ld r) {
   if(WDIM == 3) return volume_auto(r);
   else return area_auto(r);
+  }
+
+/** \brief volume in 3D, area in 2D -- inverse */
+EX ld inverse_wvolarea_auto(ld r) {
+  if(WDIM == 3) return inverse_volume_auto(r);
+  else return inverse_area_auto(r);
   }
 
 EX ld asin_clamp(ld x) { return x>1 ? 90._deg : x<-1 ? -90._deg : std::isnan(x) ? 0 : asin(x); }
@@ -361,10 +399,12 @@ EX ld asin_auto_clamp(ld x) {
     }
   }
 
+EX ld acosh_clamp(ld x) { return x < 1 ? 0 : acosh(x); }
+
 EX ld acos_auto_clamp(ld x) {
   switch(cgclass) {
-    case gcHyperbolic: return x < 1 ? 0 : acosh(x);
-    case gcSL2: return x < 1 ? 0 : acosh(x);
+    case gcHyperbolic: return acosh_clamp(x);
+    case gcSL2: return acosh_clamp(x);
     case gcSphere: return acos_clamp(x);
     case gcProduct: return PIU(acos_auto_clamp(x));
     default: return x;
@@ -956,7 +996,7 @@ EX void set_column(transmatrix& T, int i, const hyperpoint& H) {
     T[j][i] = H[j];
   }
 
-EX hyperpoint get_column(transmatrix& T, int i) {
+EX hyperpoint get_column(const transmatrix& T, int i) {
   hyperpoint h;
   for(int j=0; j<MXDIM; j++)
     h[j] = T[j][i];
@@ -1122,7 +1162,7 @@ EX ld det(const transmatrix& T) {
 
 /** warning about incorrect inverse */
 void inverse_error(const transmatrix& T) {
-  println(hlog, "Warning: inverting a singular matrix: ", T);
+  rate_limited_error("Warning: inverting a singular matrix", lalign(0, ": ", T));
   }
 
 /** inverse of a 3x3 matrix */
@@ -1794,22 +1834,35 @@ EX ld raddif(ld a, ld b) {
 
 EX int bucket_scale = 10000;
 
-EX unsigned bucketer(ld x) {
-  return (unsigned) (long long) (floor(x * bucket_scale + .5));
+#if HDR
+using buckethash_t = uint64_t;
+
+inline void hashmix(buckethash_t& seed, buckethash_t i) { seed ^= i + 0x9e3779b9 + (seed << 6) + (seed >> 2); }
+inline buckethash_t hashmix_to(buckethash_t seed, buckethash_t i) { hashmix(seed, i); return seed; }
+#endif
+
+EX buckethash_t bucketer(ld x) {
+  return (buckethash_t) (long long) (floor(x * bucket_scale + .5));
   }
 
-EX unsigned bucketer(hyperpoint h) {
-  unsigned dx = 0;
+EX buckethash_t bucketer(hyperpoint h) {
+  buckethash_t seed = 0;
   if(gproduct) {
     auto d = product_decompose(h);
     h = d.second;
-    dx += bucketer(d.first) * 50;
+    hashmix(seed, bucketer(d.first));
     if(cgi.emb->is_euc_in_product() && in_h2xe()) h /= h[2];
     }
-  dx += bucketer(h[0]) + 1000 * bucketer(h[1]) + 1000000 * bucketer(h[2]);
-  if(MDIM == 4) dx += bucketer(h[3]) * 1000000001;
-  if(elliptic) dx = min(dx, -dx);
-  return dx;
+  if(elliptic && make_tuple(h[0], h[1], h[2], h[3]) < make_tuple(-h[0], -h[1], -h[2], -h[3])) h = -h;
+  // With one pass, e.g., (-149,9999,10000) vs (-298,19998,10000) is a hash collision,
+  // and that may happen during the rotation of a hex grid. So make two passes
+  for(int a=0; a<2; a++) {
+    hashmix(seed, bucketer(h[0]));
+    hashmix(seed, bucketer(h[1]));
+    hashmix(seed, bucketer(h[2]));
+    if(MDIM == 4) hashmix(seed, bucketer(h[3]));
+    }
+  return seed;
   }  
 
 #if MAXMDIM >= 4
@@ -1978,6 +2031,27 @@ EX bool same_point_may_warn(hyperpoint a, hyperpoint b) {
     addMessage("warning: precision errors are building up!");
   if(d > worst_precision_error) worst_precision_error = d;
   return true;
+  }
+
+/** compute the area of a shape -- v.back() must equal v[0] */
+EX ld compute_area(const vector<hyperpoint>& v) {
+  ld area = 0;
+  for(int i=0; i<isize(v)-1; i++) {
+    hyperpoint h1 = v[i];
+    hyperpoint h2 = v[i+1];
+    if(euclid)
+      area += (h2[1] + h1[1]) * (h2[0] - h1[0]) / 2;
+    else {
+      hyperpoint rh2 = gpushxto0(h1) * h2;
+      hyperpoint rh1 = gpushxto0(h2) * h1;
+      ld b1 = atan2(rh1[1], rh1[0]);
+      ld b2 = atan2(rh2[1], rh2[0]);
+      ld x = b2 - b1 + M_PI;
+      cyclefix(x, 0);
+      area += x;
+      }
+    }
+  return area;
   }
 
 }

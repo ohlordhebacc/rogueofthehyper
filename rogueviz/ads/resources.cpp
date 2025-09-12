@@ -1,3 +1,6 @@
+// Relative Hell: resources
+// Copyright (C) 2022-2025 Zeno Rogue, see '../../hyper.cpp' for details
+
 namespace hr {
 
 namespace ads_game {
@@ -107,7 +110,7 @@ void display(int id, int y, ld val, ld maxv, ld tank, ld unit) {
   
   if(maxv == 0) {
     string s;
-    if(main_rock) s = hr::format(tformat, current.shift);
+    if(main_rock) s = hr::format(tformat, pdata.score[0]);
     else s = its(val + .5);
 
     queuestr(sta, ctr, 0, 20, s, col >> 8, 1, 0);
@@ -200,6 +203,9 @@ void gain_resource(eResourceType rsrc) {
   D(rtOxygen, oxygen)
   for(auto r: {rtGoldGate, rtGoldRocks, rtGoldTurret}) {
     D(r, score[treasure_id(r)])
+    #if RVCOL
+    if(pdata.score[0] + pdata.score[1] + pdata.score[2] == 30 && no_param_change) rogueviz::rv_achievement("ADSGAME");
+    #endif
     }
   playSound(nullptr, rsrc_sound[rsrc]);
   }

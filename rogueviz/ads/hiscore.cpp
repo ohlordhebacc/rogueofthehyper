@@ -1,3 +1,6 @@
+// Relative Hell: high score lists
+// Copyright (C) 2022-2025 Zeno Rogue, see '../../hyper.cpp' for details
+
 namespace hr {
 
 namespace ads_game {
@@ -64,11 +67,23 @@ void game_over_with_message(const string& reason) {
   if(pdata.fuel <= 0) cur.deathreason += " while out of fuel";
   if(pdata.ammo <= 0) cur.deathreason += " while out of ammo";
   game_over = true;
+  #if RVCOL
+  if(main_rock && no_param_change)
+    rogueviz::rv_leaderboard("de Sitter", current.shift * 1000, 1, rvlc::ms);
+  if(!main_rock && no_param_change) {
+    auto& s = pdata.score;
+    string data = lalign(0, s[0], " ", s[1], " ", s[2]);
+    rogueviz::rv_leaderboard("anti de Sitter: total score", s[0] + s[1] + s[2], 1, rvlc::num, data);
+    rogueviz::rv_leaderboard("anti de Sitter: platinum", s[0], 1, rvlc::num, data);
+    rogueviz::rv_leaderboard("anti de Sitter: plasteel", s[1], 1, rvlc::num, data);
+    rogueviz::rv_leaderboard("anti de Sitter: uranium", s[2], 1, rvlc::num, data);
+    }
+  #endif
   }
 
 void save_to_hiscores() {
   if(!main_rock && (pdata.score[0] + pdata.score[1] + pdata.score[2] == 0)) return;
-  if(main_rock && pdata.score[0] < 5) return;
+  if(main_rock && current.shift < 5) return;
   save(cur);
   allsaves.push_back(cur);
   }
@@ -80,7 +95,7 @@ void load_hiscores() {
   string s;
   while(!feof(f.f)) {
     s = scanline_noblank(f);
-    if(s == "Relative Hell 1.0") {
+    if(s == "Relative Hell 1.0" || s == "Relative Hell 1.1") {
       gamedata gd;
       gd.myname = scanline_noblank(f);
       gd.timerstart = scanline_noblank(f);
@@ -97,7 +112,7 @@ void load_hiscores() {
 int hi_sort_by = 3;
 
 void hiscore_menu() {
-  emptyscreen();
+  cmode = sm::VR_MENU | sm::NOSCR; gamescreen();
   dialog::init("High scores");
   fill_gamedata();
   vector<gamedata*> v;
@@ -117,6 +132,7 @@ void hiscore_menu() {
   for(auto ad: v) {
     dialog::addSelItem(ad->myname + " (" + ad->deathreason + ")", main_rock ? fts(getval(ad)) : its(getval(ad)), dialog::list_fake_key++);
     dialog::add_action_push([ad] {
+      cmode = sm::VR_MENU;
       emptyscreen();
       dialog::init(ad->myname);
       if(!main_rock) {

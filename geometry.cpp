@@ -38,18 +38,35 @@ struct hpcshape {
   hpcshape() { clear(); }
   };
 
-#define SIDE_SLEV 0
-#define SIDE_WTS3 3
-#define SIDE_WALL 4
-#define SIDE_LAKE 5
-#define SIDE_LTOB 6
-#define SIDE_BTOI 7
-#define SIDE_SKY  8
-#define SIDE_HIGH 9
-#define SIDE_HIGH2 10
-#define SIDE_ASHA 11
-#define SIDE_BSHA 12
-#define SIDEPARS  13
+enum class SIDE {
+  INFDEEP, DEEP, SHALLOW, WATERLEVEL, FLOOR, RED1, RED2, RED3, RED4, WALL, HIGH, HIGH2, SKY, GUARD
+  };
+
+constexpr SIDE allsides[] = {
+  SIDE::INFDEEP, SIDE::DEEP, SIDE::SHALLOW, SIDE::WATERLEVEL, SIDE::FLOOR, SIDE::RED1, SIDE::RED2, SIDE::RED3, SIDE::RED4, SIDE::WALL, SIDE::HIGH, SIDE::HIGH2, SIDE::SKY
+  };
+
+constexpr int SIDEPARS = int(SIDE::GUARD);
+
+template<class T> struct sidearray : array<T, SIDEPARS> {
+  sidearray() {};
+  // not needed in newer C++ standards, I do not know how to do this correctly in C++11
+  constexpr sidearray(T a, T b, T c, T d, T e, T f, T g, T h, T i, T j, T k, T l, T m) : array<T, SIDEPARS> ({a,b,c,d,e,f,g,h,i,j,k,l,m}) {};
+  T& operator [] (SIDE s) { return array<T, SIDEPARS>::operator[] ((int) s); };
+  const T& operator [] (SIDE s) const { return array<T, SIDEPARS>::operator[] ((int) s); };
+  };
+
+constexpr sidearray<PPR> side_to_prio = {
+  PPR::DEEP_SIDE, PPR::DEEP_SIDE, PPR::SHALLOW_SIDE, PPR::WATERLEVEL_SIDE, PPR::FLOOR_SIDE, PPR::RED1_SIDE, PPR::RED2_SIDE, PPR::RED3_SIDE,
+  PPR::WALL_SIDE, PPR::WALL_SIDE,
+  PPR::DEFAULT, PPR::DEFAULT, PPR::DEFAULT
+  };
+
+constexpr sidearray<PPR> side_to_prio_top = {
+  PPR::DEEP_TOP, PPR::DEEP_TOP, PPR::SHALLOW_TOP, PPR::WATERLEVEL_TOP, PPR::FLOOR, PPR::RED1_TOP, PPR::RED2_TOP, PPR::RED3_TOP,
+  PPR::WALL_TOP, PPR::WALL_TOP,
+  PPR::DEFAULT, PPR::DEFAULT, PPR::DEFAULT
+  };
 
 /** GOLDBERG_BITS controls the size of tables for Goldberg. see gp::check_limits */
 
@@ -79,8 +96,9 @@ struct floorshape {
   int pstrength; // pattern strength in 3D
   int fstrength; // frame strength in 3D
   PPR prio;
-  vector<hpcshape> b, shadow, side[SIDEPARS], levels[SIDEPARS], cone[2];
-  vector<vector<hpcshape>> gpside[SIDEPARS];
+  vector<hpcshape> b, shadow, cone[2];
+  sidearray<vector<hpcshape>> levels;
+  sidearray<vector<vector<hpcshape>>> side;
   floorshape() { prio = PPR::FLOOR; pstrength = fstrength = 10; }
   };
 
@@ -149,6 +167,10 @@ enum class ePipeEnd {sharp, ball};
 
 struct embedding_method;
 
+struct length_adjusted_shapes {
+  hpcshape shIBranch;
+  };
+
 /** basic geometry parameters */
 struct geometry_information {
 
@@ -200,7 +222,7 @@ struct geometry_information {
   /** for 2D geometries */
   vector<transmatrix> heptmove, hexmove, invhexmove;
 
-  int base_distlimit;
+  int base_distlimit = 0;
   
   unique_ptr<embedding_method> emb;
 
@@ -231,20 +253,22 @@ struct geometry_information {
   int use_direct;
   
   /** various parameters related to the 3D view */
-  ld INFDEEP, BOTTOM, HELLSPIKE, LAKE, WALL, FLOOR, STUFF,
-    SLEV[4], FLATEYE,
+  ld INFDEEP, HELL, DEEP, HELLSPIKE, SHALLOW, WATERLEVEL, FLOOR, RED[4], WALL, HIGH, HIGH2, LOWSKY, SKY, STAR,
+    STUFF, FLATEYE,
     LEG0, LEG1, LEG, LEG3, GROIN, GROIN1, GHOST,
     BODY, BODY1, BODY2, BODY3,
     NECK1, NECK, NECK3, HEAD, HEAD1, HEAD2, HEAD3,
-    ALEG0, ALEG, ABODY, AHEAD, BIRD, LOWSKY, SKY, HIGH, HIGH2,
-    HELL, STAR, SHALLOW;
+    ALEG0, ALEG, ABODY, AHEAD, BIRD;
+
   ld human_height, slev;
 
   ld eyelevel_familiar, eyelevel_human, eyelevel_dog;
 
 #if CAP_SHAPES
+
+sidearray<hpcshape> shSemiFloorSide;
+
 hpcshape 
-  shSemiFloorSide[SIDEPARS],
   shBFloor[2],
   shWave[8][2],  
   shCircleFloor,
@@ -273,7 +297,7 @@ hpcshape
   shFigurine, shTreat, shSmallTreat,
   shElementalShard,
   // shBranch, 
-  shIBranch, shTentacle, shTentacleX, shILeaf[3], 
+  shILeaf[3],
   shMovestar,
   shWolf, shYeti, shDemon, shGDemon, shEagle, shGargoyleWings, shGargoyleBody,
   shFoxTail1, shFoxTail2,
@@ -364,14 +388,19 @@ hpcshape
 
   hpcshape shSpaceship, shMissile, shSpaceshipBase, shSpaceshipCockpit, shSpaceshipGun, shSpaceshipEngine;
 
-  hpcshape shChristmasLight;
+  hpcshape shChristmasLight, shSmallPike;
 
-  hpcshape shReserved[9];
+  hpcshape shBunnyBody, shBunnyHead, shBunnyEar, shBunnyTail;
+
+  hpcshape shReserved[16];
   
   int orb_inner_ring; //< for shDisk* shapes, the number of vertices in the inner ring
   int res1, res2;
 
   map<int, hpcshape> shPipe;
+
+  length_adjusted_shapes lash_default;
+  map<int, length_adjusted_shapes> lash;
 
   vector<hpcshape> shPlainWall3D, shWireframe3D, shWall3D, shMiniWall3D;
   vector<hyperpoint> walltester;
@@ -397,7 +426,7 @@ hpcshape
     shDesertFloor, shPowerFloor, shRoseFloor, shSwitchFloor,
     shTurtleFloor, shRedRockFloor[3], shDragonFloor;
 
-  ld dlow_table[SIDEPARS], dhi_table[SIDEPARS], dfloor_table[SIDEPARS];
+  sidearray<ld> dlow_table, dhi_table;
 
   int prehpc;
   /** list of points in all shapes */
@@ -415,7 +444,7 @@ hpcshape
   /** last ideal point of the current shape */
   hyperpoint last_ideal;
 
-  bool validsidepar[SIDEPARS];
+  sidearray<bool> validsidepar;
 
   vector<glvertex> ourshape;
 #endif
@@ -452,18 +481,21 @@ hpcshape
   void prepare_compute3();
   void prepare_shapes();
   void prepare_usershapes();
+  void generate_faces();
 
   void hpcpush(hyperpoint h);
   void hpc_connect_ideal(hyperpoint a, hyperpoint b);
   void hpcsquare(hyperpoint h1, hyperpoint h2, hyperpoint h3, hyperpoint h4);
-  void chasmifyPoly(double fac, double fac2, int k);
+  void chasmifyPoly(double fac, double fac2, SIDE p);
   void shift(hpcshape& sh, double dx, double dy, double dz);
   void initPolyForGL();
   void extra_vertices();
   transmatrix ddi(int a, ld x);
-  void drawTentacle(hpcshape &h, ld rad, ld var, ld divby);
+  void drawTentacle(ld rad, ld var, ld divby, ld tlength);
   hyperpoint hpxyzsc(double x, double y, double z);
   hyperpoint turtlevertex(int u, double x, double y, double z);
+
+  length_adjusted_shapes& get_lash(ld len);
   
   void bshape(hpcshape& sh, PPR prio);
   void finishshape();
@@ -483,9 +515,8 @@ hpcshape
   
   void init_floorshapes();
   void bshape2(hpcshape& sh, PPR prio, int shapeid, struct matrixlist& m);
-  void bshape_regular(floorshape &fsh, int id, int sides, ld shift, ld size, cell *model);
-  void generate_floorshapes_for(int id, cell *c, int siid, int sidir);
-  void generate_floorshapes();
+  void bshape_bt(floorshape &fsh, int id, int sides, ld size, cell *model);
+  void generate_floorshapes_for(int id, cell *c);
   void make_floor_textures_here();
   void finish_apeirogon(hyperpoint center);
 
@@ -530,10 +561,10 @@ hpcshape
     transmatrix corners;
     transmatrix corners_for_triangle;
     transmatrix rotator;
-    ld alpha;
+    ld alpha, scale;
     int area;
     int pshid[3][8][GOLDBERG_LIMIT][GOLDBERG_LIMIT][8];
-    int nextid;
+    vector<array<int, 5>> id_to_params;
     };
   shared_ptr<gpdata_t> gpdata = nullptr;
   #endif
@@ -596,6 +627,23 @@ EX bool special_fake() {
   return fake::in() && (BITRUNCATED || (GOLDBERG && S3 == 4 && gp::param.first == 1 && gp::param.second == 1) || (UNRECTIFIED && gp::param.first == 1 && gp::param.second == 1));
   }
 
+EX hookset<bool(geometry_information*)> hooks_generate_faces;
+
+void geometry_information::generate_faces() {
+  if(callhandlers(false, hooks_generate_faces, this)) return;
+  #if MAXMDIM >= 4
+  else if(reg3::in()) reg3::generate();
+  else if(euc::in(3)) euc::generate();
+  #if CAP_SOLV
+  else if(sn::in()) sn::create_faces();
+  #endif
+  #if CAP_BT
+  else if(bt::in()) bt::create_faces();
+  #endif
+  else if(nil && !mtwisted) nilv::create_faces();
+  #endif
+  }
+
 void geometry_information::prepare_basics() {
 
   DEBBI(DF_INIT | DF_POLY | DF_GEOM, ("prepare_basics"));
@@ -611,6 +659,12 @@ void geometry_information::prepare_basics() {
   heptshape = nullptr;
 
   xp_order = 0;
+
+  if(arcm::in()) {
+    auto& ac = arcm::current_or_fake();
+    if(fake::in_ext()) ac = arcm::current;
+    ac.compute_geometry();
+    }
   
   emb = make_embed();
   bool geuclid = euclid;
@@ -639,7 +693,6 @@ void geometry_information::prepare_basics() {
       t->tessf = cgi.tessf / d;
       t->hexvdist = cgi.hexvdist / d;
       t->hexhexdist = hdist(xpush0(cgi.hcrossf), xspinpush0(TAU/S7, cgi.hcrossf)) / d;
-      t->base_distlimit = cgi.base_distlimit-1;
       });
     goto hybrid_finish;
     }
@@ -713,7 +766,11 @@ void geometry_information::prepare_basics() {
     int s6 = BITRUNCATED ? S3*2 : S3;
     vals.emplace_back(S7, unrect ? 0 : BITRUNCATED ? fake::around / 3 : fake::around / 2);
     vals.emplace_back(s6, unrect ? fake::around : BITRUNCATED ? fake::around * 2 / 3 : fake::around / 2);
+    #if CAP_ARCM
     ld edgelength = euclid ? 1 : arcm::compute_edgelength(vals);
+    #else
+    ld edgelength = 1;
+    #endif
 
     // circumradius and inradius, for S7 and S6 shapes
     auto c7 = asin_auto(sin_auto(edgelength/2) / sin(M_PI / S7));
@@ -737,8 +794,6 @@ void geometry_information::prepare_basics() {
     (hr::format("S7=%d S6=%d hexf = " LDF" hcross = " LDF" tessf = " LDF" hexshift = " LDF " hexhex = " LDF " hexv = " LDF "\n", S7, S6, hexf, hcrossf, tessf, hexshift, 
     hexhexdist, hexvdist)));  
   
-  base_distlimit = ginf[geometry].distlimit[!BITRUNCATED];
-
   hybrid_finish:
   
   #if CAP_GP
@@ -763,17 +818,8 @@ void geometry_information::prepare_basics() {
   if(geometry == gHoroRec || kite::in() || sol || nil || nih) hexvdist = rhexf = .5, tessf = .5, scalefactor = .5, crossf = hcrossf7/2;
   if(bt::in()) scalefactor *= min<ld>(vid.binary_width, 1), crossf *= min<ld>(vid.binary_width, 1);
   #endif
-  #if MAXMDIM >= 4
-  if(reg3::in()) reg3::generate();
-  if(euc::in(3)) euc::generate();
-  #if CAP_SOLV
-  else if(sn::in()) sn::create_faces();
-  #endif
-  #if CAP_BT
-  else if(bt::in()) bt::create_faces();
-  #endif
-  else if(nil && !mtwisted) nilv::create_faces();
-  #endif
+  
+  generate_faces();
   
   scalefactor = crossf / hcrossf7;
   orbsize = crossf;
@@ -804,7 +850,6 @@ void geometry_information::prepare_basics() {
     scalefactor = csc;
     hcrossf = crossf = orbsize = hcrossf7 * csc;
     hexf = rhexf = hexvdist = csc * arb::current_or_slided().floor_scale;
-    base_distlimit = arb::current.range;
     }
   
   #if MAXMDIM >= 4
@@ -839,8 +884,11 @@ void geometry_information::prepare_basics() {
   floorrad1 = rhexf * (GDIM == 3 ? 1 : 1 - 0.06 * global_boundary_ratio);
   
   if(euc::in(2,4)) {
-    if(!BITRUNCATED)
-      floorrad0 = floorrad1 = rhexf * (GDIM == 3 ? 1 : .94);
+    if(!BITRUNCATED) {
+      ld sca = (GDIM == 3 ? 1 : .94);
+      floorrad0 = hexvdist * sca;
+      floorrad1 = rhexf * sca;
+      }
     else
       floorrad0 = hexvdist * (GDIM == 3 ? 1 : .9),
       floorrad1 = rhexf * (GDIM == 3 ? 1 : .8);
@@ -888,7 +936,9 @@ void geometry_information::prepare_basics() {
     }
   if(mtwisted && underlying_euclid) {
     single_step = 1;
+    #if CAP_ARCM
     if(ug == gArchimedean) plevel = arcm::current_or_fake().dual_tile_area();
+    #endif
     if(ug == gEuclid && PURE) plevel = sqrt(3)/4.;
     if(ug == gEuclidSquare && PURE) plevel = 1;
     if(ug == gEuclidSquare && BITRUNCATED) plevel = 0.25;
@@ -950,17 +1000,17 @@ EX namespace geom3 {
     return tanh(abslev) / tanh(vid.camera);
     }
   
-  ld projection_to_abslev(ld proj) {
+  EX ld projection_to_abslev(ld proj) {
     if(sphere || euclid) return proj-vid.camera;
     // tanh(abslev) / tanh(camera) = proj
     return atanh(proj * tanh(vid.camera));
     }
   
-  ld lev_to_projection(ld lev) {
+  EX ld lev_to_projection(ld lev) {
     return abslev_to_projection(vid.depth - lev);
     }
   
-  ld projection_to_factor(ld proj) {
+  EX ld projection_to_factor(ld proj) {
     return lev_to_projection(0) / proj;
     }
   
@@ -1027,15 +1077,17 @@ EX namespace geom3 {
   
     if(invalid != "") {
       INFDEEP = .7;
-      BOTTOM = .8;
+      DEEP = .8;
       HELLSPIKE = .85;
-      LAKE = .9;
+      SHALLOW = .9;
+      WATERLEVEL = .95;
       FLOOR = 1;
+      RED[0] = 1;
+      RED[1] = 1.08;
+      RED[2] = 1.16;
+      RED[3] = 1.24;
       WALL = 1.25;
-      SLEV[0] = 1;
-      SLEV[1] = 1.08;
-      SLEV[2] = 1.16;
-      SLEV[3] = 1.24;
+
       FLATEYE = 1.03;
       LEG1 = 1.025;
       LEG = 1.05;
@@ -1057,7 +1109,6 @@ EX namespace geom3 {
       ABODY = 1.08;
       AHEAD = 1.12;
       BIRD = 1.20;
-      SHALLOW = .95;
       STUFF = 1;
       LOWSKY = SKY = HIGH = HIGH2 = STAR = 1;
       }
@@ -1107,11 +1158,11 @@ EX namespace geom3 {
       
       slev = vid.rock_wall_ratio * wh / 3;
       for(int s=0; s<=3; s++)
-        SLEV[s] = lev_to_factor(vid.rock_wall_ratio * wh * s/3);
-      LAKE = lev_to_factor(wh * -vid.lake_top);
+        RED[s] = lev_to_factor(vid.rock_wall_ratio * wh * s/3);
+      WATERLEVEL = lev_to_factor(wh * -vid.lake_top);
       SHALLOW = lev_to_factor(wh * -vid.lake_shallow);
       HELLSPIKE = lev_to_factor(wh * -(vid.lake_top+vid.lake_bottom)/2);
-      BOTTOM = lev_to_factor(wh * -vid.lake_bottom);
+      DEEP = lev_to_factor(wh * -vid.lake_bottom);
       LOWSKY = lev_to_factor(vid.lowsky_height * wh);
       HIGH = lev_to_factor(vid.wall_height2 * wh);
       HIGH2 = lev_to_factor(vid.wall_height3 * wh);
@@ -1138,9 +1189,9 @@ EX namespace geom3 {
         adjust(HIGH2, HIGH, 0.5);
         adjust(SKY, FLOOR, 1);
         adjust(STAR, FLOOR, 0.9);
-        adjust(LAKE, FLOOR, 0.8);
-        adjust(SHALLOW, LAKE, 0.9);
-        adjust(BOTTOM, SHALLOW, 0.5);
+        adjust(WATERLEVEL, FLOOR, 0.8);
+        adjust(SHALLOW, WATERLEVEL, 0.9);
+        adjust(DEEP, SHALLOW, 0.5);
         adjust(INFDEEP, FLOOR, 1);
         }
       }
@@ -1298,7 +1349,9 @@ EX string cgi_string() {
     return s;
     }
   
-  if(GOLDBERG_INV) V("GP", its(gp::param.first) + "," + its(gp::param.second));
+  if(GOLDBERG_INV) {
+    V("GP", its(gp::param.first) + "," + its(gp::param.second)+":"+its(int(gp::su)));
+    }
   if(IRREGULAR) V("IRR", its(irr::irrid));
   #if MAXMDIM >= 4
   if(is_subcube_based(variation)) V("SC", its(reg3::subcube_count));
@@ -1426,6 +1479,28 @@ EX void check_cgi() {
     make_floor_textures();
   #endif
 
+  }
+
+/** auxiliary for propagate_scale_change */
+template<class T> void affect_scale_change(geometry_information*& alt_cgip, const T& switcher) {
+  auto gi = alt_cgip;
+  bool changed = false;
+  switcher([&] {
+    check_cgi();
+    changed = gi != cgip;
+    if(changed && (gi->state & 1)) cgi.require_basics();
+    if(changed && (gi->state & 2)) cgi.require_shapes();
+    gi = alt_cgip = cgip;
+    });
+  alt_cgip = gi;
+  if(changed) switcher(propagate_scale_change);
+  };
+
+EX void propagate_scale_change() {
+
+  if(mhybrid) affect_scale_change(hybrid::underlying_cgip, [] (reaction_t f) { hybrid::in_underlying_geometry(f); });
+  if(hybrid::pmap) affect_scale_change(hybrid::pcgip, [] (reaction_t f) { hybrid::in_actual(f); });
+  if(fake::in()) affect_scale_change(fake::underlying_cgip, [] (reaction_t f) { fake::in_underlying_geometry(f); });
   }
 
 void clear_cgis() {

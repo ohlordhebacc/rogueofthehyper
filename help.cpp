@@ -244,7 +244,7 @@ EX void buildCredits() {
     "Triple_Agent_AAA, bluetailedgnat, Allalinor, Shitford, KittyTac, Christopher King, KosGD, TravelDemon, Bubbles, rdococ, frozenlake, MagmaMcFry, "
     "Snakebird Priestess, roaringdragon2, Stopping Dog, bengineer8, Sir Light IJIJ, ShadeBlade, Saplou, shnourok, Ralith, madasa, 6% remaining, Chimera245, Remik Pi, alien foxcat thing, "
     "Piotr Grochowski, Ann, still-flow, tyzone, Paradoxica, LottieRatWorld, aismallard, albatross, EncodedSpirit, Jacob Mandelson, CrashTuvai, cvoight, jennlbw, Kali Ranya, spiritbackup, Dylan, L_Lord, AntiRogue, "
-    "masonlgreen, A human, Pasu4, inbetween selves, CodeParade, Existentialistic, blejanre"
+    "masonlgreen, A human, Pasu4, inbetween selves, CodeParade, Existentialistic, blejanre, Esme, Joshua Murphy, josephcsible, googobbug"
     );
 #ifdef EXTRALICENSE
   help += EXTRALICENSE;
@@ -425,6 +425,9 @@ EX string generateHelpForItem(eItem it) {
   
   if(it == itOrbIntensity && inv::on)
     help += XLAT("\n\nIn the Orb Strategy Mode, the effect is increased to +100%.");
+
+  if(it == itOrbRecall)
+    help += XLAT("\n\nOther active orbs extend the duration of this orb.");
 
   if(it == itOrbEmpathy) {
     int cnt = 0;
@@ -753,6 +756,8 @@ void add_reqs(eLand l, string& s) {
     #define ACCONLY(z) s += XLAT("Accessible only from %the1.\n", z);
     #define ACCONLY2(z,x) s += XLAT("Accessible only from %the1 or %the2.\n", z, x);
     #define ACCONLY3(z,y,x) s += XLAT("Accessible only from %the1, %2, or %3.\n", z, y, x);
+    #define ACCONLY4(z1,z2,z3,z4) s += XLAT("Accessible only from %the1, %2, %3, or %4.\n", z1, z2, z3, z4);
+    #define ACCONLY5(z1,z2,z3,z4,z5) s += XLAT("Accessible only from %the1, %2, %3, %4, or %5.\n", z1, z2, z3, z4, z5);
     #define ACCONLYF(z) s += XLAT("Accessible only from %the1 (until finished).\n", z);
     #define IFINGAME(land, ok, fallback) if(isLandIngame(land)) { ok } else { s += XLAT("Alternative rule when %the1 is not in the game:\n", land); fallback }
     #include "content.cpp"
