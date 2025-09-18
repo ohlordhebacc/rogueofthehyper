@@ -530,7 +530,7 @@ EX void castLightningBolt(cellwalker lig) {
     if(c->wall == waCTree) makeflame(c, 12, false);
     if(c->wall == waRose)  makeflame(c, 60, false);
     if(cellHalfvine(c) && c->wall == lig.peek()->wall) {
-      destroyHalfvine(c, waPartialFire, 4);
+      destroyHalfvine(c, waFire, 4);
       brk = true;
       }
 

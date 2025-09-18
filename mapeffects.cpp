@@ -554,7 +554,7 @@ EX void flameHalfvine(cell *c, int val) {
     addMessage(XLAT("%The1 burns!", c->item));
     c->item = itNone;
     }
-  c->wall = waPartialFire;
+  c->wall = waFire;
   c->wparam = val;
   }
 
@@ -563,11 +563,11 @@ EX bool destroyHalfvine(cell *c, eWall newwall IS(waNone), int tval IS(6)) {
     changes.ccell(c);
     forCellEx(c1, c) if(c1->wall == c->wall) {
       changes.ccell(c1);
-      if(newwall == waPartialFire) flameHalfvine(c1, tval);
+      if(newwall == waFire) flameHalfvine(c1, tval);
       else if(newwall == waRed1) c1->wall = waVinePlant;
       else c1->wall = newwall;
       }
-    if(newwall == waPartialFire) flameHalfvine(c, tval);
+    if(newwall == waFire) flameHalfvine(c, tval);
     else c->wall = newwall;
     return true;
     }

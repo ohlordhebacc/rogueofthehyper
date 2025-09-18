@@ -2354,7 +2354,7 @@ EX namespace heat {
         continue;
         }
       else if(c->wall == waBonfireOff) activateActiv(c, false);
-      else if(cellHalfvine(c)) destroyHalfvine(c, waPartialFire, 6);
+      else if(cellHalfvine(c)) destroyHalfvine(c, waFire, 6);
       else makeflame(c, qty, false);
       if(c->wparam < qty) c->wparam = qty;
       if(c->land == laRose || c->land == laWildWest || c->land == laOvergrown || isHaunted(c->land) || c->land == laMountain || c->land == laIce) {
