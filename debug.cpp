@@ -318,16 +318,38 @@ struct debugScreen {
       dialog::addSelItem("land param (int)", its(what->landparam), 'p');
       dialog::add_action([what] () { dialog::editNumber(what->landparam, 0, 100, 1, what->landparam, "landparam",
         "Extra value that is important in some lands. The specific meaning depends on the land."); });
-      dialog::addSelItem("land param (hex)", itsh8(what->landparam), 0);
+      dialog::addSelItem("land param (hex)", itsh8(what->landparam), 'P');
+			dialog::add_action([what] () {
+				dialog::editNumber(what->landparam, 0, (1<<8), 1, what->landparam, "landparam (hex)",
+					"Extra value that is important in some lands. The specific meaning depends on the land.");
+				dialog::use_hexeditor();
+				});
       dialog::addSelItem("land param (heat)", fts(HEAT(what)), 't');
-      dialog::addSelItem("cdata", 
-        its(getCdata(what, 0))+"/"+its(getCdata(what,1))+"/"+its(getCdata(what,2))+"/"+its(getCdata(what,3))+"/"+itsh(getBits(what)), 't');
-      dialog::add_action([what] () { 
+			dialog::add_action([what] () { 
         static ld d = HEAT(what);
-        dialog::editNumber(d, -2, 2, 0.1, d, "landparam",
+        dialog::editNumber(d, -2, 2, 0.1, d, "landparam (heat)",
           "Extra value that is important in some lands. The specific meaning depends on the land."); 
         dialog::get_di().reaction = [what] () { HEAT(what) = d; };
         });
+      dialog::addSelItem("cdata", 
+        its(getCdata(what, 0))+"/"+its(getCdata(what, 1))+"/"+its(getCdata(what, 2))+"/"+its(getCdata(what, 3))+"/"+itsh(getBits(what)), 'T');
+			dialog::add_action([what] () {
+				dialog::editNumber(what->landparam, 0, 0, 0, what->landparam, "ignore this", "continue to ignore this");
+				/*static ld d = getBits(what);
+				dialog::editNumber(d, 0, (1<<16), 1, d, "them bits", "Real");
+				dialog::get_di().reaction = [what] () { getBits(what) = d; };*/
+				dialog::get_di().extra_options = [what] () {
+					dialog::addSelItem("cdata 0", its(getCdata(what, 0)), 0);
+					dialog::addSelItem("cdata 1", its(getCdata(what, 0)), 0);
+					dialog::addSelItem("cdata 2", its(getCdata(what, 0)), 0);
+					dialog::addSelItem("cdata 3", its(getCdata(what, 0)), 0);
+					//dialog::addSelItem("bit crap", itsh(getBits(what)), 0);
+					dialog::addSelItem("emerald/vineyard generator", its(what->master->emeraldval), 0);
+					dialog::addSelItem("palace generator", its(what->master->fiftyval), 0);
+					dialog::addSelItem("zebra generator", its(what->master->zebraval), 0);
+					dialog::addSelItem("field quotient ID", its(what->master->fieldval), 0);
+					};
+				});
       dialog::addSelItem("land flags", its(what->landflags)+"/"+itsh2(what->landflags), 'f');
       dialog::add_action([what] () { 
         bitfield_editor(what->landflags, [what] (int i) { what->landflags = i; }, "Rarely used.");
@@ -423,6 +445,7 @@ struct debugScreen {
           "monster direction");
           dialog::get_di().extra_options = [what] () { 
             dialog::addBoolItem(XLAT("mirrored"), what->monmirror, 'M');
+						dialog::add_action([what] () { what->monmirror = !what->monmirror; });
             };
           });
         dialog::addSelItem("stuntime", its(what->stuntime), 's');
