@@ -615,7 +615,7 @@ EX void select_quotient_screen() {
   }
 
 EX void select_quotient() {
-  if(meuclid && !aperiodic && !arcm::in() && !reg3::cubes_reg3 && !(cgflags & qFRACTAL)) {
+  if(meuclid && !aperiodic && !arcm::in() && !reg3::cubes_reg3 && !(cgflags & qFRACTAL) && !arb::in()) {
     euc::prepare_torus3();
     pushScreen(euc::show_torus3);
     }
@@ -633,6 +633,8 @@ EX void select_quotient() {
     pushScreen(product::show_config);
   else if(mtwisted)
     hybrid::configure_period();
+  else if(arb::in())
+    pushScreen(arbiquotient::show_dialog);
   else {
     vector<eGeometry> choices;
     for(int i=0; i<isize(ginf); i++) if(same_tiling(eGeometry(i))) choices.push_back(eGeometry(i));
@@ -818,7 +820,12 @@ EX geometry_data compute_geometry_data() {
     case gMacbeath:
       gd.euler = -12;
       break;
-    
+
+    case gArbitrary:
+      gd.worldsize = isize(currentmap->allcells());
+      gd.euler = UNKNOWN;
+      break;
+
     default: 
       gd.worldsize = isize(currentmap->allcells());
       println(hlog, "warning: Euler characteristics unknown, worldsize = ", gd.worldsize);
@@ -850,6 +857,8 @@ EX geometry_data compute_geometry_data() {
   
   if(gd.euler < 0 && !closed_manifold)
     gd.worldsize = -gd.worldsize;
+
+  if(arb::in()) gd.worldsize = isize(currentmap->allcells());
 
   auto& spf = gd.spf;
   spf = its(ts);
@@ -952,6 +961,7 @@ EX geometry_data compute_geometry_data() {
 
   if(WDIM == 3) gd.euler = 0;
   gd.demigenus = 2 - gd.euler;
+  if(gd.euler == UNKNOWN) gd.demigenus = UNKNOWN;
 
   return gd;
   }
@@ -1179,12 +1189,12 @@ EX void showEuclideanMenu() {
   add_size_action();
 
   if(closed_manifold) {
-    dialog::addSelItem(XLAT("Euler characteristics"), its(gd.euler), 0);
+    dialog::addSelItem(XLAT("Euler characteristics"), gd.euler == UNKNOWN ? "?" : its(gd.euler), 0);
     if(WDIM == 3) ;
     else if(nonorientable)
-      dialog::addSelItem(XLAT("demigenus"), its(gd.demigenus), 0);
+      dialog::addSelItem(XLAT("demigenus"), gd.demigenus == UNKNOWN ? "?" : its(gd.demigenus), 0);
     else
-      dialog::addSelItem(XLAT("genus"), its(gd.demigenus/2), 0);
+      dialog::addSelItem(XLAT("genus"), gd.demigenus == UNKNOWN ? "?" : its(gd.demigenus/2), 0);
     }
   else dialog::addBreak(200);
   
@@ -1211,18 +1221,30 @@ EX eGeometry readGeo(const string& ss) {
   return gNormal;
   }
 
+EX map<unsigned, string> solution_cache;
+
 EX void field_quotient_3d(int p, unsigned hash) {
   check_cgi();
   cgi.require_basics();
   stop_game_and_switch_mode(rg::nothing);
   fieldpattern::field_from_current();
   set_geometry(gFieldQuotient);
-  for(;; p++) { 
-    println(hlog, "trying p = ", p);
-    currfp.Prime = p; currfp.force_hash = hash;
-    if(!currfp.solve()) break;
+  auto& cache = solution_cache[hash];
+  if(cache == "") {
+    for(;; p++) {
+      println(hlog, "trying p = ", p);
+      currfp.Prime = p; currfp.force_hash = hash;
+      if(!currfp.solve()) break;
+      }
+    shstream outs;
+    hwrite_fpattern(outs, currfp);
+    cache = outs.s;
     }
-  println(hlog, "set prime = ", currfp.Prime);
+  else {
+    println(hlog, "using the cached solution");
+    shstream ins(cache);
+    hread_fpattern(ins, currfp);
+    }
   }
 
 EX void field_quotient_3d(string code) {
