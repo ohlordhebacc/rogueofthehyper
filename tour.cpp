@@ -76,6 +76,8 @@ static constexpr flagtype USE_SLIDE_NAME = 128;
 static constexpr flagtype NOTITLE = 256;
 /** \brief always display the text, even if going back or texts are disabled */
 static constexpr flagtype ALWAYS_TEXT = 256;
+/** \brief add a sidescreen to a normal screen */
+static constexpr flagtype SIDE = 512;
 #endif
 
 EX vector<reaction_t> restorers;
@@ -237,7 +239,6 @@ void return_geometry() {
   gamestack::pop();
   pconf.scale = 1; pconf.alpha = 1;
   presentation(pmGeometryReset);
-  addMessage(XLAT("Returned to your game."));
   }
 
 EX void return_geometries() {
@@ -257,7 +258,10 @@ EX bool next_slide() {
   popScreenAll();
   if(gamestack::pushed()) {
     return_geometry();
-    if(!(flags & QUICKGEO)) return true;
+    if(!(flags & QUICKGEO)) {
+      addMessage(XLAT("Returned to your game."));
+      return true;
+      }
     }
   if(flags & FINALSLIDE) return true;
   presentation(pmStop);
