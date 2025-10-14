@@ -1140,7 +1140,7 @@ EX eMonster pick_poly_monster(eMonster orig) {
   auto polymonsters = {
     moYeti, moRunDog, moRanger,
     moMonkey, moCultist,
-    moFallingDog, moVariantWarrior, moFamiliar, moOrangeDog,
+    moFallingDog, moVariantWarrior, moFamiliar,
     moRedFox, moFalsePrincess, moResearcher,
     moNarciss,
     };

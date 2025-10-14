@@ -924,7 +924,7 @@ void pcmove::tell_why_cannot_attack() {
     addMessage(XLAT("You cannot attack through the Vine!"));
   else if(c2->monst == moTentacle || c2->monst == moTentacletail || c2->monst == moTentaclewait || c2->monst == moTentacleEscaping)
     addMessage(XLAT("You cannot attack Tentacles directly!"));
-  else if(c2->monst == moHedge && !markOrb(itOrbThorns)) {
+  else if((c2->monst == moHedge || c2->monst == moOrangeDog) && !markOrb(itOrbThorns)) {
     addMessage(XLAT("You cannot attack %the1 directly!", c2->monst));
     if(bow::crossbow_mode())
       addMessage(XLAT("Stab them by shooting around them."));

@@ -275,7 +275,11 @@ MONSTER( 'E', 0xFF0000, "Fire Elemental", moFireElemental, CF_FACE_UP, RESERVED,
 MONSTER( 'E', 0xC0C0FF, "Air Elemental", moAirElemental, CF_FACE_UP | CF_FLYING | CF_IGNORE_PLATE | CF_HIGH_THREAT, RESERVED, moAirElemental, "An Air Elemental looks like a live tornado. Once you are three (or less) cells from it, "
   "it is impossible to move closer, due to strong winds. You can stand and wait, though. "
   "This also affects most monsters.")
-MONSTER( 'D', 0xC06000, "Striped Dog", moOrangeDog, CF_FACE_SIDE, RESERVED, moYeti, "A predator native to the Zebra.")
+MONSTER( 'D', 0xC06000, "Striped Dog", moOrangeDog, CF_FACE_SIDE, RESERVED, moYeti,
+	"A predator native to the Zebra.\n"
+  "Striped Dogs are protected from frontal attacks, but they still can be 'stabbed' "
+  "easily by moving from one place next to them to another."
+	)
 MONSTER( 'G', 0xFFFFFF, "Tentacle+Ghost", moTentacleGhost, CF_FACE_SIDE | CF_NOGHOST | CF_NOBLOW | CF_GHOST | CF_FLYING | CF_ATTACK_THRU_VINE | CF_ATTACK_NONADJACENT | CF_IGNORE_PLATE | CF_IGNORE_SMELL | CF_MULTITILE | CF_WORM | CF_GHOSTMOVER, RESERVED, moNone, tentdes )
 MONSTER( 'B', 0x8080C0, "Metal Beast", moMetalBeast, CF_FACE_SIDE | CF_METAL | CF_STUNNABLE | CF_SLOWMOVER, RESERVED, moYeti, elecdesc )
 MONSTER( 'B', 0xC060C0, "Rich Metal Beast", moMetalBeast2, CF_FACE_SIDE | CF_METAL | CF_STUNNABLE | CF_SLOWMOVER, RESERVED, moYeti, elecdesc )

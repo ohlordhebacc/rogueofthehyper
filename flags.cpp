@@ -387,7 +387,7 @@ EX bool hornStuns(cell *c) {
   return 
     m == moRagingBull || m == moSleepBull || m == moHerdBull ||
     m == moButterfly || m == moGreater || m == moGreaterM || m == moDraugr ||
-    m == moHedge || m == moFlailer || m == moVizier || m == moReptile || m == moSalamander || 
+    m == moHedge || m == moOrangeDog || m == moFlailer || m == moVizier || m == moReptile || m == moSalamander || 
     m == moPair || m == moAltDemon || m == moHexDemon || m == moMonk || m == moCrusher ||
     attackJustStuns(c, AF_NORMAL, moNone);
   }

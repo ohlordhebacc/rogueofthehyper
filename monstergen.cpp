@@ -112,18 +112,18 @@ EX void chasmifyElemental(cell *c) {
 
 EX eMonster crossroadsMonster() {
 
-  static eMonster weak[9] = {
-    moYeti, moGoblin, moRanger, moOrangeDog, moRunDog, moMonkey, moZombie,
+  static eMonster weak[8] = {
+    moYeti, moGoblin, moRanger, moRunDog, moMonkey, moZombie,
     moDesertman, moCultist
     };
   
   if(hrand(10) == 0) return weak[hrand(9)];
 
-  static eMonster m[24] = {
+  static eMonster m[25] = {
     moWorm, moTentacle, 
     moTroll, moEagle,
     moLesser, moGreater, moPyroCultist, moGhost,
-    moFireFairy, moIvyRoot, moHedge,
+    moFireFairy, moIvyRoot, moHedge, moOrangeDog,
     moLancer, moFlailer, moVineBeast,
     moBomberbird, moAlbatross, moRedTroll,
     moWaterElemental, moAirElemental, moFireElemental,

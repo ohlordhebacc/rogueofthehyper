@@ -2393,51 +2393,54 @@ EX void livecaves() {
       if(c->monst == moDarkTroll) c->monst = moTroll;
       if(c->item || c->monst || c->cpdist == 0) continue;
       for(cell *c2: adj_minefield_cells(c)) {
-        eWall w = c2->wall;
-        if(w == waDeadfloor) hv++, bringlife.push_back(c2);
-        else if(w == waDeadwall || (w == waDeadfloor2 && !c2->monst && !isPlayerOn(c2)))
-          hv--, bringlife.push_back(c2);
-        else if(w == waCavefloor) hv++;
-        else if(w == waCavewall) hv--;
-        else if(w == waRubble) hv--;
-        else if(w == waGargoyle) hv--;
-        else if(w == waGargoyleFloor) hv--;
-        else if(w == waGargoyleBridge) hv--;
-        else if(w == waStone) ;
-        else if(w == waDeadTroll) hv -= 5;
-        else if(w == waDeadTroll2) hv -= 3;
-        else if(w == waPetrified || w == waPetrifiedBridge) hv -= 2;
-        else if(w == waVinePlant) hv--;
-        else if(ls::any_chaos() && c2->land != laCaves && c2->land != laEmerald) ;
-        else if(c2->land == laTrollheim) ; // trollheim floor does not count
-        else if(w != waBarrier) hv += 5;
-        
-        if(sword::at(c)) hv += 500;
+				for(cell *c3: adj_minefield_cells(c2)) {
+					eWall w = c3->wall;
+					if(c3->land == laNone) ;
+					else if(w == waDeadfloor) hv++, bringlife.push_back(c3);
+					else if(w == waDeadwall || (w == waDeadfloor2 && !c2->monst && !isPlayerOn(c3)))
+						hv--, bringlife.push_back(c3);
+					else if(w == waCavefloor) hv++;
+					else if(w == waCavewall) hv--;
+					else if(w == waRubble) hv--;
+					else if(w == waGargoyle) hv--;
+					else if(w == waGargoyleFloor) hv--;
+					else if(w == waGargoyleBridge) hv--;
+					else if(w == waStone) ;
+					else if(w == waDeadTroll) hv -= 5;
+					else if(w == waDeadTroll2) hv -= 3;
+					else if(w == waPetrified || w == waPetrifiedBridge) hv -= 2;
+					else if(w == waVinePlant) hv--;
+					else if(ls::any_chaos() && c3->land != laCaves && c3->land != laEmerald) ;
+					else if(c3->land == laTrollheim) ; // trollheim floor does not count
+					else if(w != waBarrier) hv += 5;
 
-        if(c2->cpdist == 0 && markOrb(itOrbDigging)) hv+=100;
-        if(items[itOrbEmpathy] && isFriendly(c2) && markEmpathy(itOrbDigging))
-          hv+=100;
-        if(w == waThumperOn) hv+=100;
-        if(w == waFire) hv+=100;
-        if(w == waBigStatue) hv-=100;
-        if(c2->item && !peace::on) hv+=2;
-        if(c2->monst == moZombie) hv += 10;
-        if(c2->monst == moGhost) hv += 10;
-        if(c2->monst == moTentacleGhost) hv += 10;
-        if(c2->monst == moFriendlyGhost) hv += 10;
-        if(c2->monst == moSkeleton) hv ++;
-        if(c2->monst == moGargoyle) hv--;
-        if(c2->monst == moDraugr) hv--;
-        if(isDragon(c2->monst)) hv++;
-        if(c2->monst == moNecromancer) hv += 10;
-        if(c2->monst == moWormtail) hv++;
-        if(c2->monst == moTentacletail) hv-=2;
-        if(c2->monst == moAngryDie) hv++;
-        if(isIvy(c2)) hv--;
-        if(isDemon(c2)) hv-=3;
-        // if(c2->monst) c->tmp++;
-        // if(c2->monst == moTroll) c->tmp -= 3;
-        }
+					if(sword::at(c)) hv += 500;
+
+					if(c3->cpdist == 0 && markOrb(itOrbDigging)) hv+=100;
+					if(items[itOrbEmpathy] && isFriendly(c3) && markEmpathy(itOrbDigging))
+						hv+=100;
+					if(w == waThumperOn) hv+=100;
+					if(w == waFire) hv+=100;
+					if(w == waBigStatue) hv-=100;
+					if(c3->item && !peace::on) hv+=2;
+					if(c3->monst == moZombie) hv += 10;
+					if(c3->monst == moGhost) hv += 10;
+					if(c3->monst == moTentacleGhost) hv += 10;
+					if(c3->monst == moFriendlyGhost) hv += 10;
+					if(c3->monst == moSkeleton) hv ++;
+					if(c3->monst == moGargoyle) hv--;
+					if(c3->monst == moDraugr) hv--;
+					if(isDragon(c3->monst)) hv++;
+					if(c3->monst == moNecromancer) hv += 10;
+					if(c3->monst == moWormtail) hv++;
+					if(c3->monst == moTentacletail) hv-=2;
+					if(c3->monst == moAngryDie) hv++;
+					if(isIvy(c3)) hv--;
+					if(isDemon(c3)) hv-=3;
+					// if(c3->monst) c->tmp++;
+					// if(c3->monst == moTroll) c->tmp -= 3;
+					}
+				}
       }
     else if(c->land == laLivefjord) {
       hv = 0;
@@ -2498,13 +2501,21 @@ EX void livecaves() {
   //  if(c->land != laCaves) continue;
   //  if(c->wall == waThumper || c->wall == waBonfire) continue;
       
-      if(hv > 0) c->wall = waCavefloor;
-      if(hv < 0) {
+      if(hv >= 15) c->wall = waCavefloor;
+      else if(hv <= -15) {
         c->wall = waCavewall;
         if(c->land != laCaves && c->land != laDeadCaves && c->land != laEmerald)
           achievement_gain_once("GARDENER");
         }
-      }
+			else if(!c->item && !c->monst && !isPlayerOn(c)) {
+				if(c->wall == waCavefloor) {
+					c->wall = waCavewall;
+					if(c->land != laCaves && c->land != laDeadCaves && c->land != laEmerald)
+						achievement_gain_once("GARDENER");
+						}
+					else c->wall = waCavefloor;
+					}
+				}
     else if(c->land == laLivefjord) {
       if(hv > 0 && c->wall == waStrandedBoat) c->wall = waBoat;
       if(hv > 0 && c->wall == waNone) {

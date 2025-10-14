@@ -75,7 +75,7 @@ EX int killtypes() {
 
 
 EX bool arrow_stuns(eMonster m) {
-  return among(m, moCrusher, moMonk, moAltDemon, moHexDemon, moGreater, moGreaterM, moHedge);
+  return among(m, moCrusher, moMonk, moAltDemon, moHexDemon, moGreater, moGreaterM, moHedge, moOrangeDog);
   }
 
 EX bool canAttack(cell *c1, eMonster m1, cell *c2, eMonster m2, flagtype flags) {
@@ -110,7 +110,7 @@ EX bool canAttack(cell *c1, eMonster m1, cell *c2, eMonster m2, flagtype flags) 
   if(among(m2, moAltDemon, moHexDemon, moPair, moCrusher, moNorthPole, moSouthPole, moMonk) && !(flags & (AF_EAT | AF_MAGIC | AF_BULL | AF_CRUSH)))
     return false;
   
-  if(m2 == moHedge && !(flags & (AF_STAB | AF_TOUGH | AF_EAT | AF_MAGIC | AF_LANCE | AF_SWORD_INTO | AF_HORNS | AF_BULL | AF_CRUSH)))
+  if((m2 == moHedge || m2 == moOrangeDog) && !(flags & (AF_STAB | AF_TOUGH | AF_EAT | AF_MAGIC | AF_LANCE | AF_SWORD_INTO | AF_HORNS | AF_BULL | AF_CRUSH)))
     if(!checkOrb(m1, itOrbThorns)) return false;
   
   // krakens do not try to fight even with Discord
@@ -126,7 +126,7 @@ EX bool canAttack(cell *c1, eMonster m1, cell *c2, eMonster m2, flagtype flags) 
   
   if(!(flags & AF_NOSHIELD) && ((flags & AF_NEXTTURN) ? checkOrb2 : checkOrb)(m2, itOrbShield)) return false;
   
-  if((flags & AF_STAB) && m2 != moHedge) {
+  if((flags & AF_STAB) && m2 != moHedge && m2 != moOrangeDog) {
     if(!checkOrb(m1, itOrbThorns)) return false;
     else flags |= AF_IGNORE_UNARMED;
     }
@@ -404,6 +404,7 @@ EX void stunMonster(cell *c2, eMonster killer, flagtype flags) {
     c2->monst == moDraugr ? 1 :
     c2->monst == moVizier ? 0 :
     c2->monst == moHedge ? 1 :
+		c2->monst == moOrangeDog ? 1 :
     c2->monst == moFlailer ? 1 :
     c2->monst == moSalamander ? 6 :
     c2->monst == moBrownBug ? 3 :
@@ -1324,7 +1325,7 @@ EX void stabbingAttack(movei mi, eMonster who, int bonuskill IS(0)) {
     
     if(stabthere && (items[itOrbThorns] || !out) && canAttack(mt,who,c,c->monst,AF_STAB)) {
       changes.ccell(c);
-      if(c->monst != moHedge || out) {
+      if((c->monst != moHedge && c->monst != moOrangeDog) || out) {
         markOrb(itOrbThorns); if(who != moPlayer) markOrb(itOrbEmpathy);
         }
       eMonster m = c->monst;

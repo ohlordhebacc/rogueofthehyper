@@ -800,8 +800,21 @@ EX void giantLandSwitch(cell *c, int d, cell *from) {
       break;
     
     case laZebra:
-      if(d==8) 
-        c->wall = (randomPatternsMode ? RANDPAT : is_zebra_trapdoor(c)) ? waTrapdoor : waNone;
+      if(d==8) {
+        //c->wall = (randomPatternsMode ? RANDPAT : is_zebra_trapdoor(c)) ? waTrapdoor : waNone;
+				if(randomPatternsMode)
+					c->wall = RANDPAT ? waTrapdoor : waNone;
+				else {
+					if(is_zebra_trapdoor(c)) {
+						if(hrand(200) >= min(items[itZebra], 50))
+							c->wall = waTrapdoor;
+						}
+					else {
+						if(hrand(200) < min(items[itZebra], 50))
+							c->wall = waTrapdoor;
+						}
+					}
+				}
       
       ONEMPTY {
         if(c->wall == waNone && hrand(2500) < PT(100 + 2 * (kills[moOrangeDog]), 300) && notDippingFor(itZebra))
