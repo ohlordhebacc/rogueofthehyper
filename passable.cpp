@@ -74,7 +74,7 @@ EX bool checkflags(flagtype flags, flagtype x) {
     if((x & P_FISH)      && markOrb(itOrbFish)) return true;
     if((x & P_MARKWATER) && markOrb(itOrbWater)) return true;
     if((x & P_AETHER)    && markOrb2(itOrbAether) && !(flags&P_NOAETHER)) return true;
-    if((x & P_LEVITATE)) && markOrb(itOrbLevitate) return true;
+    if((x & P_LEVITATE) && markOrb(itOrbLevitate)) return true;
     }
   if(flags & P_ISFRIEND) if(items[itOrbEmpathy]) 
     if(checkflags(flags ^ P_ISPLAYER ^ P_ISFRIEND, x) && markOrb(itOrbEmpathy))
@@ -677,3 +677,4 @@ EX bool scentResistant() {
 
 
 }
+
