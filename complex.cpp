@@ -2609,17 +2609,24 @@ EX void livecaves() {
 EX void hurricaneWind() {
   vector<cell*>& allcells = currentmap->allcells();
   int dcs = isize(allcells);
+	
   std::vector<int> heatvals(dcs);
   int gr = gamerange();
+	
+	int hurristates = 3; // how many states does the hurricane automata have?
+	int hurriupdate = 2; // how many adjacent cells of the next state does it take for the cell to go into that state?
+	
   for(int i=0; i<dcs; i++) {
     cell *c = allcells[i];
     if(!doall && c->cpdist > gr+1) break;
+		
     heatvals[i] = 0;
+		
     if(c->land == laHurricane) {
       if(c->wall == waBoat) {
         hurricaneMoveBoat(c);
         }
-      for(int j=0; j<c->type; j++) if(c->move(j)->land == laHurricane) {
+      /*for(int j=0; j<c->type; j++) if(c->move(j)->land == laHurricane) {
         if(c->landparam == 1 && c->move(j)->landparam == 0) {
           heatvals[i]++;
           }
@@ -2627,8 +2634,10 @@ EX void hurricaneWind() {
           heatvals[i]++;
           }
         else if(c->landparam == 0 && c->move(j)->landparam == 2) {
-          heatvals[i]++;
-          }
+          heatvals[i]++;*/
+			for(cell *c2: adj_minefield_cells(c)) if(c2->land == laHurricane) {
+				int hurrinext = c->landparam == 0 ? hurristates - 1 : c->landparam - 1;
+				if(c2->landparam == hurrinext) heatvals[i]++;
         }
       }
     }
@@ -2636,7 +2645,7 @@ EX void hurricaneWind() {
     cell *c = allcells[i];
     
     if(c->land == laHurricane) {
-      if(heatvals[i] >= 2) {
+      /*if(heatvals[i] >= 2) {
         if(c->landparam == 1) {
           c->landparam = 0;
           }
@@ -2644,10 +2653,9 @@ EX void hurricaneWind() {
           c->landparam = 1;
           }
         else if(c->landparam == 0) {
-          c->landparam = 2;
-          }
-        
-      }
+          c->landparam = 2;*/
+			if(heatvals[i] >= hurriupdate)
+				c->landparam = c->landparam == 0 ? hurristates - 1 : c->landparam - 1;
       if(c->wall == waBoatMoved)
         c->wall = waBoat;
       }
