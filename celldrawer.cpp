@@ -2727,7 +2727,7 @@ void celldrawer::add_map_effects() {
   if(c->land == laHurricane) {
     
     for(int i=0; i<c->type; i++) {
-      if(c->landparam == (c->move(i)->landparam+1)%3 && c->move(i)->land == laHurricane) {
+      if(c->landparam == (c->move(i)->landparam+1)%hurristates && c->move(i)->land == laHurricane) {
         ld hdir0 = currentmap->spin_angle(c, i) + M_PI;
         /* todo what if no spin_angle */
     

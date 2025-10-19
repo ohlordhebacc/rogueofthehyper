@@ -2231,7 +2231,7 @@ EX void giantLandSwitch(cell *c, int d, cell *from) {
       case laHurricane:
       if(d >= 8) {
         c->wall = waSea;
-        c->landparam = hrand(3);
+        c->landparam = hrand(hurristates);
         }
       if(d == 7 && !safety) {
         if(hrand(5000) < 500)

@@ -2605,6 +2605,26 @@ EX void livecaves() {
     }
   }
 
+int hurristates = 3; // how many states does the hurricane automata have?
+int hurriupdate = 2; // how many adjacent cells of the next state does it take for the cell to go into that state?
+
+#if CAP_COMMANDLINE
+bool hurriReadArg() {
+	if(arg::argis("-hurristates")) {
+		arg::shift(); hurristates = arg::argi();
+		if(hurristates <= 0) hurristates = 1;
+		return 0;
+		}
+	if(arg::argis("-hurriupdate")) {
+		arg::shift(); hurriupdate = arg::argi();
+		if(hurriupdate < 0) hurriupdate = 0;
+		return 0;
+		}
+	return 0;
+	}
+
+auto ah_hurricane = addHook(hooks_args, 0, hurriReadArg);
+#endif
 
 EX void hurricaneWind() {
   vector<cell*>& allcells = currentmap->allcells();
@@ -2612,9 +2632,6 @@ EX void hurricaneWind() {
 	
   std::vector<int> heatvals(dcs);
   int gr = gamerange();
-	
-	int hurristates = 3; // how many states does the hurricane automata have?
-	int hurriupdate = 2; // how many adjacent cells of the next state does it take for the cell to go into that state?
 	
   for(int i=0; i<dcs; i++) {
     cell *c = allcells[i];
@@ -2626,15 +2643,6 @@ EX void hurricaneWind() {
       if(c->wall == waBoat) {
         hurricaneMoveBoat(c);
         }
-      /*for(int j=0; j<c->type; j++) if(c->move(j)->land == laHurricane) {
-        if(c->landparam == 1 && c->move(j)->landparam == 0) {
-          heatvals[i]++;
-          }
-        else if(c->landparam == 2 && c->move(j)->landparam == 1) {
-          heatvals[i]++;
-          }
-        else if(c->landparam == 0 && c->move(j)->landparam == 2) {
-          heatvals[i]++;*/
 			for(cell *c2: adj_minefield_cells(c)) if(c2->land == laHurricane) {
 				int hurrinext = c->landparam == 0 ? hurristates - 1 : c->landparam - 1;
 				if(c2->landparam == hurrinext) heatvals[i]++;
@@ -2645,15 +2653,6 @@ EX void hurricaneWind() {
     cell *c = allcells[i];
     
     if(c->land == laHurricane) {
-      /*if(heatvals[i] >= 2) {
-        if(c->landparam == 1) {
-          c->landparam = 0;
-          }
-        else if(c->landparam == 2) {
-          c->landparam = 1;
-          }
-        else if(c->landparam == 0) {
-          c->landparam = 2;*/
 			if(heatvals[i] >= hurriupdate)
 				c->landparam = c->landparam == 0 ? hurristates - 1 : c->landparam - 1;
       if(c->wall == waBoatMoved)
@@ -2661,16 +2660,17 @@ EX void hurricaneWind() {
       }
     }
   }
+
 EX void hurricaneMoveBoat(cell *c) {
   int seanum = 0;
   int stab[8];
   int totalStrength = 0;
-  for(int j=0; j<c->type; j++) if((c->landparam+1)%3 == c->move(j)->landparam) {
+  for(int j=0; j<c->type; j++) if((c->landparam+1)%hurristates == c->move(j)->landparam) {
     cell *c2 = c->move(j);
     int strength = 0;
     for(int k=0; k<c2->type; k++) {
       
-      if((c2->landparam+1)%3 == c2->move(k)->landparam) {
+      if((c2->landparam+1)%hurristates == c2->move(k)->landparam) {
         strength++;
         }
       }

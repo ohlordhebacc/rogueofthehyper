@@ -376,9 +376,9 @@ EX bool againstWind(cell *cto, cell *cfrom) {
   if(cfrom->land == laHurricane && !shmup::on && cto->land == laHurricane) {
     if(cfrom->wall == waBoat && cto->wall == waBoat)
       return false;
-    else if(cfrom->landparam == (cto->landparam+1)%3)
+    else if(cfrom->landparam == (cto->landparam+1)%hurristates)
       return true;
-    else if((cfrom->landparam == cto->landparam-1) || (cfrom->landparam == cto->landparam+2))
+    else if((cfrom->landparam == cto->landparam-1) || (cfrom->landparam == cto->landparam+(hurristates-1)))
       return false;
     }
   if(whirlwind::winddir(d) == -1) return true;

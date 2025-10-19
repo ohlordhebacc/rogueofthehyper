@@ -319,14 +319,29 @@ EX int barriercolor(int phase IS(0)) {
   }
  
 EX int hurricanecolor(int phase IS(0), int type IS(0)) {
-  if(type == 0) {
-    return gradient(0x4010a0, 0x6010c0, -1, sintick(1000, phase/200./M_PI), 1);
+	if(type < 0) {
+		return 0x888888;
+		}
+  if(type%7 == 0) {
+    return gradient(0x4010a0, 0x6010c0, -1, sintick(1000/(type/7+1), phase/200./M_PI), 1);
     }
-  if(type == 1) {
-    return gradient(0x1010b0, 0x1010f0, -1, sintick(1000, phase/200./M_PI), 1);
+  if(type%7 == 1) {
+    return gradient(0x1010b0, 0x1010f0, -1, sintick(1000/(type/7+1), phase/200./M_PI), 1);
     }
-  if(type == 2) {
-    return gradient(0x1040a0, 0x1060c0, -1, sintick(1000, phase/200./M_PI), 1);
+  if(type%7 == 2) {
+    return gradient(0x1040a0, 0x1060c0, -1, sintick(1000/(type/7+1), phase/200./M_PI), 1);
+    }
+	if(type%7 == 3) {
+    return gradient(0x1040b0, 0x1060f0, -1, sintick(1000/(type/7+1), phase/200./M_PI), 1);
+    }
+	if(type%7 == 4) {
+    return gradient(0x4040a0, 0x6060c0, -1, sintick(1000/(type/7+1), phase/200./M_PI), 1);
+    }
+	if(type%7 == 5) {
+    return gradient(0x4010b0, 0x6010f0, -1, sintick(1000/(type/7+1), phase/200./M_PI), 1);
+    }
+	if(type%7 == 6) {
+    return gradient(0x4040b0, 0x6060f0, -1, sintick(1000/(type/7+1), phase/200./M_PI), 1);
     }
   return 0xffffff;
   }
